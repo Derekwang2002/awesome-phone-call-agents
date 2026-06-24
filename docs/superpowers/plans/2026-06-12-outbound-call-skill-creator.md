@@ -129,16 +129,16 @@ Do not create `template.md`. The creator captures the source, goal, execution, a
 
 ## Required Creator Workflow
 
-1. Confirm that the user wants to create a new outbound phone-call workflow skill.
-2. Ask for or derive a lowercase hyphenated business skill name.
-3. Read `references/output-targets.md`, choose the scope, and choose a host-compatible output parent.
-4. Ask which source family to use: `google-form`, `tiktok-ads`, `local-csv`, or `other`.
-5. Read `references/data-sources.md` for the selected source family.
-6. Capture the source fields for phone number, recipient label, dedupe key, date filtering, and goal inputs.
-7. Capture the outbound goal contract: call purpose, required context, allowed questions, completion criteria, result values, and escalation cases.
-8. Read `references/mcp-provider-route.md` and use the default MCP provider route in the generated skill.
-9. Capture execution policy: dry-run first or approved direct execution after a concrete processing request, including serial processing after approval.
-10. Capture result-output policy: source writeback, source-adjacent result artifact, local result CSV, or last-resort session table fallback.
+1. Confirm that the user wants to create a new outbound phone-call workflow skill when intent is ambiguous.
+2. Ask for either the business workflow or source family, then infer or confirm the missing side.
+3. Confirm the outbound goal with a recommended draft.
+4. Recommend the binding level and execution policy together.
+5. Confirm one lowercase hyphenated business skill name candidate.
+6. Confirm source-specific durable result output, treating session-table output as a fallback.
+7. Read `references/data-sources.md` for the selected source family and complete source onboarding.
+8. Capture the source fields for phone number, recipient label, dedupe key, date filtering, and goal inputs.
+9. Read `references/mcp-provider-route.md` and use the default MCP provider route in the generated skill.
+10. Read `references/output-targets.md`, choose the scope, and choose a host-compatible output parent.
 11. Read `references/safety.md` and include the required safety boundaries in the generated skill.
 12. Generate the business skill folder and files in the selected output parent using `references/generated-skill-contract.md`.
 13. Run this skill's bundled checker script with `--skill-dir <generated-business-skill-dir>`.

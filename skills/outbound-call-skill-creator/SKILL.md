@@ -11,6 +11,8 @@ Use this skill when the user wants to create a new outbound phone-call workflow 
 
 Generated skills should bind enough source, durable result-output, and safety detail to make later runs predictable. The minimum source binding level is `parameterized-bound`: the source family, field schema, source-level outreach basis or consent rule, dedupe rule, goal contract, and result-output policy are fixed at creation time, while runtime requests can still provide approved parameters such as a date window, form ID, CSV path, campaign ID, source writeback target, source-adjacent artifact target, or output file path.
 
+Before asking creation questions, read `references/interaction-flow.md` and use its recommendation-first prompt order and user-facing language boundary. Start with the user's workflow or data source, not with skill naming, output paths, binding levels, execution modes, field mapping, or writeback configuration unless the user already provided those values. In prompts, lead with plain labels such as "Reusable workflow," "Preview before calling," "Call provider connection," and "Checks before real calls"; keep internal terms as secondary detail for contracts, summaries, and advanced users.
+
 ## Core Rule
 
 Generate a directly usable business skill using the scope-first output rule in `references/output-targets.md`. Do not assume the current project has a usable `skills/` directory.
@@ -27,28 +29,28 @@ Do not create `template.md`. The creator captures the source, goal, execution, a
 
 ## Required Creator Workflow
 
-1. Confirm that the user wants to create a new outbound phone-call workflow skill.
-2. Ask for or derive a lowercase hyphenated business skill name.
-3. Read `references/output-targets.md`, choose the scope, and choose a host-compatible output parent.
-4. Ask which source family to use: `google-form`, `tiktok-ads`, `local-csv`, or `other`.
-5. Read `references/data-sources.md` for the selected source family.
-6. Read `references/binding-contract.md` and choose whether the workflow should remain at the minimum `parameterized-bound` level or be upgraded to `fully-bound` when the user wants a concrete fixed source instance.
-7. Run creation-time source onboarding for the selected binding level:
+1. Confirm that the user wants to create a new outbound phone-call workflow skill when intent is ambiguous; otherwise continue from the user's request.
+2. Read `references/interaction-flow.md`, maintain the known-values set, and ask only for the next missing value.
+3. Ask for either the business workflow or source family. If only workflow is known, ask for the source family with examples. If only source family is known, recommend a likely business workflow and ask the user to confirm or adjust it.
+4. Confirm the outbound call goal with a recommended goal draft based on the workflow and source.
+5. Read `references/binding-contract.md` and `references/execution-modes.md`, then recommend workflow reuse and call-preview behavior together using plain labels first. Default to Reusable workflow (`parameterized-bound`) plus Preview before calling (`dry-run-then-batch-approval`); offer Fixed source workflow (`fully-bound`) or Direct execution after checks (`approved-direct-execution`) only when the workflow needs them.
+6. Confirm the business skill name, using one recommended lowercase hyphenated candidate when the user has not provided a name.
+7. Confirm durable result output by listing source-specific options. Prefer verified source writeback, source-adjacent result artifacts, or a new local result CSV; record session-table output only as a last-resort fallback when durable output validation is blocked.
+8. Read `references/data-sources.md` for the selected source family and run creation-time source onboarding for the selected binding level:
    - `fully-bound`: authenticate or verify the concrete source, fetch a representative sample from that source, confirm schema and durable result-output readiness, and stop before generating a real-call skill if onboarding cannot complete.
    - `parameterized-bound`: authenticate or verify the source family, fetch a representative sample from one approved source instance, confirm the schema contract, and record which runtime parameters may vary later.
    If source onboarding cannot support the minimum `parameterized-bound` contract because the source or result-output contract is still unknown, do not write the generated skill yet; continue source onboarding or stop with the missing contract details.
    For any authenticated or connector-backed source family, ask only for the minimum connection details needed to authorize or locate the source before source access and sample fetch complete. Do not ask the user to manually provide the full field mapping before source access has been checked and a representative sample has been fetched.
-8. Capture the source fields from the sampled schema for phone number, recipient label, dedupe key, date filtering, source-level outreach basis or optional consent field, goal inputs, and any runtime parameters allowed by the binding level.
-9. Show a small redacted sample summary and prompt the user to confirm or adjust field mapping.
-10. Prompt the user to define the default outbound goal from the sampled fields: call purpose, required context, allowed questions, prohibited claims, completion criteria, result values, summary format, and escalation cases.
-11. Read `references/mcp-provider-route.md` and run creation-time provider onboarding for the default CALL-E MCP provider route in the current host runtime: configure or verify the MCP route, complete or verify provider authentication, and confirm compatible plan/run/status tools without placing a real call. For Codex, use the `codex mcp` adapter commands in the reference. For Claude, Antigravity, Cursor, or another MCP host, use that host's connector or MCP server setup and authorization flow. Do not treat app connector tools, plugin tools, or similarly named non-MCP tools as proof that this provider route is authenticated. If provider onboarding still cannot complete, record a provider onboarding blocker and keep the generated skill dry-run-only.
-12. Read `references/execution-modes.md` and ask the user to choose an execution mode, defaulting to `dry-run-then-batch-approval`. For both supported binding levels, available modes are `dry-run-then-batch-approval` or `approved-direct-execution`.
+9. Capture the source fields from the sampled schema for phone number, recipient label, dedupe key, date filtering, source-level outreach basis or optional consent field, goal inputs, and any runtime parameters allowed by the binding level.
+10. Show a small redacted sample summary and prompt the user to confirm or adjust only fields that cannot be inferred.
+11. Read `references/mcp-provider-route.md` and run creation-time provider onboarding for the default CALL-E MCP provider route in the current host runtime: configure or verify the MCP route, complete or verify provider authentication, and confirm compatible plan/run/status tools without placing a real call. When user action is needed, describe it as connecting or authorizing the call provider, not as "provider onboarding." For Codex, use the `codex mcp` adapter commands in the reference. For Claude, Antigravity, Cursor, or another MCP host, use that host's connector or MCP server setup and authorization flow. Do not treat app connector tools, plugin tools, or similarly named non-MCP tools as proof that this provider route is authenticated. If provider onboarding still cannot complete, record a provider onboarding blocker and keep the generated skill dry-run-only.
+12. Read `references/output-targets.md`, choose the scope, and choose a host-compatible output parent. Ask the user only when discoverability is unclear, the output path is explicit but nonstandard, or a new user skills root would need to be created.
 13. Capture the result-output policy at creation time and capture field mapping, supported target modes, or allowed runtime output parameters. Prefer verified source writeback when available. Treat source writeback narrowly: it updates the bound source instance or canonical source record store, not a newly created side file. When the result should live in the same source system but not mutate the source records, configure `source-adjacent-result-artifact` with a verified container, artifact ID or creation policy, schema, and append or upsert behavior. When source writeback and source-adjacent output are unavailable or not requested, configure a new local result CSV as the durable fallback. Keep session-table output as a last-resort non-persistent fallback only when durable output validation is blocked; do not proactively present session table as a normal user-facing option.
 14. Run best-effort creation-time preflight checks when tools and permissions are available: read-only source auth/schema checks, non-mutating source writeback checks, source-adjacent artifact checks, local result CSV path checks, and MCP route/tool readiness. If preflight cannot run for a bound workflow, record the blocker and do not generate a real-call skill until source and provider onboarding requirements are satisfied.
 15. Read `references/safety.md` and include the required safety boundaries in the generated skill.
 16. Generate the business skill folder and files in the selected output parent using `references/generated-skill-contract.md`.
 17. Run this skill's bundled checker script with `--skill-dir <generated-business-skill-dir>`.
-18. Read `references/creation-summary.md` and show the user a creation summary covering skill name, path, binding level, source onboarding, provider onboarding, source contract, goal contract, execution mode, result-output target, provider route, validation result, and reload or discovery note.
+18. Read `references/creation-summary.md` and show the user a creation summary covering skill name, path, binding level, source onboarding, provider onboarding, source contract, goal contract, execution mode, result-output target, provider route, validation result, and reload or discovery note. In the summary, use plain labels first and internal contract terms second.
 19. Run repository validation only when the generated skill is being committed to a repository that provides a validation command.
 
 ## Built-In Choices
@@ -64,7 +66,7 @@ If the user selects `other`, do not guess API schemas, credentials, identifiers,
 
 ## Creation-Time Source Onboarding
 
-Creation-time source onboarding happens after source family and binding level selection, and before final goal and result-output contract generation.
+Creation-time source onboarding happens after the workflow, source family, provisional call goal, binding level, execution mode, skill name, and result-output direction are known, and before final field mapping or generated-skill contract generation.
 
 For `fully-bound` generated skills, authenticate or verify the concrete source, fetch a representative sample from that exact source, confirm schema and durable result-output readiness, and stop before generating a real-call skill when onboarding cannot complete.
 
@@ -72,11 +74,11 @@ For `parameterized-bound` generated skills, authenticate or verify the source fa
 
 If source onboarding cannot produce enough source, schema, outreach-basis or consent, dedupe, and durable result-output detail for the minimum `parameterized-bound` contract, stop before writing the generated skill and ask for the missing contract details.
 
-During onboarding, show the user a small redacted sample summary, never full private phone numbers, credentials, tokens, cookies, callback URLs, or provider confirmation tokens. Use the sampled fields to help the user define the default outbound goal.
+During onboarding, show the user a small redacted sample summary, never full private phone numbers, credentials, tokens, cookies, callback URLs, or provider confirmation tokens. Use the sampled fields to refine and finalize the provisional outbound goal.
 
 For any authenticated or connector-backed source family, inspect available host-local access routes before asking the user to choose an access route. When a host-local source adapter, connector, MCP tool, or helper script is available, inspect it before asking the user to choose an access route. When a safe source authorization or auth-readiness action is available, start it before asking the user for another confirmation; do not ask the user to say `start auth`, choose a discovered route, or refresh a session before attempting the available non-mutating auth path. For source MCP servers, do not treat a host CLI status such as Codex `Auth: Unsupported` as proof that source access is unavailable when source-native MCP tools or resources are exposed; run the source's read-only auth or inventory probe first. Collect only minimum connection details before access is verified: skill name, binding level, source family, source locator such as form ID or account scope only when no usable route can be discovered or the discovered route needs a concrete locator, and access route such as OAuth, Apps Script fallback, MCP tool, MCP resource, or managed connector. After access verification and representative sample fetch, infer the phone field, recipient field, dedupe key, outreach basis or consent field, goal inputs, and durable result-output capability from the sample. Ask the user to fill or correct only fields that cannot be inferred.
 
-When the user names only an authenticated source family such as `google-form` or `tiktok-ads`, the next creation step must be source access onboarding: choose or confirm the binding level, discover available host access routes, run or request authorization, and attempt a read-only sample fetch before asking for the default outbound goal, result-output mapping, or full field mapping. Do not ask the user to choose `use local OAuth to list accessible forms` when a local OAuth helper can be checked directly. If the user has not provided a skill name yet, derive a temporary candidate name from the source context or ask only for the name in the same onboarding prompt; do not use a missing skill name as a reason to collect goal details first.
+When the user names only an authenticated source family such as `google-form` or `tiktok-ads`, first use `references/interaction-flow.md` to recommend a likely workflow and provisional call goal. Then discover available host access routes, run or request authorization, and attempt a read-only sample fetch before asking for detailed field mapping, final goal-field selection, or result-output mapping. Do not ask the user to choose `use local OAuth to list accessible forms` when a local OAuth helper can be checked directly. If the user has not provided a skill name yet, derive a temporary candidate name from the source context, but do not use a missing skill name as a reason to collect detailed mapping first.
 
 ## Creation-Time Provider Onboarding
 
@@ -112,25 +114,41 @@ For `fully-bound` and `parameterized-bound` generated skills that may place real
 
 ## Creation Prompts
 
-Use short, explicit prompts during creation. Prefer recommending a safe default instead of leaving the user to infer it.
+Use short, explicit prompts during creation. Prefer recommending a safe default instead of leaving the user to infer it. Use `references/interaction-flow.md` as the source of truth for prompt order, copyable examples, information reuse, and manual action blocks.
+
+Do not ask for all details at once. If the user already provided several values, record them and continue from the first missing value. Do not ask for skill name, output target, binding level, execution mode, full field mapping, or writeback behavior before workflow, source family, and call goal are established unless the user already supplied those later values.
+
+Do not lead user prompts with internal terms such as binding level, execution mode, provider onboarding, runtime gate, or writeback binding. Present the plain label and default recommendation first, then include internal terms only in parentheses when useful. For example, say "Reusable workflow (`parameterized-bound`) with preview before calling (`dry-run-then-batch-approval`)" instead of asking the user to choose a binding level and execution mode.
+
+### Workflow And Source
+
+Start by asking for either the business workflow or source family. If the user provides only a source family, recommend a likely workflow and ask the user to confirm or adjust it. If the user provides only the workflow, ask for the source family with the built-in choices.
+
+### Outbound Goal
+
+Confirm the outbound call goal before binding, naming, writeback, and output target decisions. Provide a recommended goal draft based on the workflow and sampled fields when available.
+
+### Workflow Reuse And Call Preview
+
+Recommend workflow reuse and call-preview behavior together. The default prompt should be "Reusable workflow (`parameterized-bound`) with preview before calling (`dry-run-then-batch-approval`)." Mention Fixed source workflow (`fully-bound`) only when one source and writeback target should be fixed at creation time, and mention Direct execution after checks (`approved-direct-execution`) only for stable workflows whose concrete runtime requests must pass the checks before real calls.
 
 ### Skill Name
 
-When the user has not provided a name, derive one to three lowercase hyphenated candidates from the business context and ask the user to confirm one. Put the best candidate first.
+When the user has not provided a name, derive one lowercase hyphenated candidate from the business context and ask the user to confirm it.
 
 When the user has already provided a name, validate that it is a lowercase hyphenated slug. If it is not valid, suggest the closest valid slug and ask for confirmation before writing files.
+
+### Writeback
+
+Confirm writeback by listing source-specific writeback options. Treat session-table output as a fallback when writeback is unavailable, blocked, or intentionally omitted, not as a standard writeback option.
 
 ### Output Target
 
 Before writing files, state the selected scope, output parent, generated skill directory, why that target was chosen, and whether the host may need a reload or add-location step. Ask the user only when discoverability is unclear, the output path is explicit but not a known skills parent, or a new user skills root would need to be created.
 
-### Execution Mode
-
-Present execution modes after the binding level is known. For both supported binding levels, recommend `dry-run-then-batch-approval` first, then briefly explain `approved-direct-execution`.
-
 ## Binding Levels
 
-Treat `parameterized-bound` as the minimum binding level before writing the generated skill. If the user has no preference, use `parameterized-bound`; use `fully-bound` only when the workflow should fix a concrete source and durable result-output target at creation time.
+Choose a binding level before writing the generated skill, but present the choice to the user as workflow reuse. Treat `parameterized-bound` as the minimum binding level; if the user has no preference, use Reusable workflow (`parameterized-bound`). Use Fixed source workflow (`fully-bound`) only when the workflow should fix a concrete source and durable result-output target at creation time.
 
 Use `references/binding-contract.md` for full binding-level selection rules and generated skill requirements.
 
@@ -143,7 +161,7 @@ Do not create a business skill with no phone field, no source-level outreach bas
 
 ## Execution Modes
 
-Ask the user to choose the generated skill's execution mode after choosing the binding level. If the user does not choose, use `dry-run-then-batch-approval`.
+Choose the generated skill's execution mode after choosing the binding level, but present the choice to the user as call-preview behavior. If the user does not choose, use Preview before calling (`dry-run-then-batch-approval`).
 
 Use `references/execution-modes.md` for full mode selection rules, concrete runtime request examples, and direct execution guardrails.
 

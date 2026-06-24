@@ -79,7 +79,7 @@ When a safe source authorization or auth-readiness action is available, start it
 7. Show a redacted sample summary and proposed field mapping for user confirmation.
 8. Ask the user to fill only fields that cannot be inferred from the sample.
 
-When the user names only an authenticated source family such as `google-form` or `tiktok-ads`, treat that as enough to enter source access onboarding. First inspect available host routes and run any safe auth-readiness or discovery check. The next prompt should ask only for the minimum locator or user-completed authorization step that remains necessary to fetch a representative sample, while confirming the recommended binding level if needed. Do not ask for the default outbound goal, result-output mapping, or full field mapping before the access check and sample fetch have been attempted.
+When the user names only an authenticated source family such as `google-form` or `tiktok-ads`, treat that as enough to recommend a likely workflow and provisional call goal, then enter source access onboarding. First inspect available host routes and run any safe auth-readiness or discovery check. The next prompt should ask only for the minimum locator or user-completed authorization step that remains necessary to fetch a representative sample. Do not ask for detailed field mapping, final goal-field selection, or result-output mapping before the access check and sample fetch have been attempted.
 
 Do not present a blank manual mapping form for phone, recipient, consent, dedupe, goal inputs, or result-output fields before authentication and sample fetch have been attempted. If access or sample fetch is blocked before the minimum source contract can be confirmed, record the blocker and stop before generating the skill.
 

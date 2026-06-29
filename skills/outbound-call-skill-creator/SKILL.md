@@ -208,7 +208,7 @@ If a value is intentionally parameterized, label it as a runtime parameter inste
 Generated skills must define structured runtime contracts for:
 
 - concrete runtime request examples and insufficient request examples
-- source onboarding report with `binding_level`, `source_family`, `access_method`, `auth_or_access_check`, `sample_fetch`, `sampled_source_instance`, `field_mapping`, `default_goal_source`, and `onboarding_blocker`
+- source onboarding report with `binding_level`, `source_family`, `access_method`, `auth_or_access_check`, `sample_fetch`, `sampled_source_instance`, `field_mapping`, `user_confirmed_field_mapping`, `default_goal_source`, and `onboarding_blocker`
 - provider onboarding report with `provider_route`, `provider_host_runtime`, `mcp_route_setup_check`, `auth_readiness`, `compatible_tools`, `one_off_call_capability`, and `provider_onboarding_blocker`
 - provider result finalization report with `run_id`, `terminal_status_seen`, `full_history_rechecked`, `negative_terminal_stability_checked`, `result_output_allowed`, and `blocker`
 - runtime gate report rows with `check`, `status`, `evidence`, `blocker`, and `required_before_call`

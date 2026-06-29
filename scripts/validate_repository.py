@@ -599,7 +599,7 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "Next I will check whether this host already exposes Google Forms access.",
             "If local OAuth is available, I will run its auth check and list accessible forms before asking you for a Form ID.",
             "## TikTok Ads Lead Follow-Up Skill",
-            "If this host has no TikTok Ads MCP server configured, I will add the default route first and then inspect it",
+            "If this host has no TikTok Ads MCP server configured, I will ask whether to add the default route before running `codex mcp add`",
             "- source family: `tiktok-ads`",
             "source-adjacent result artifact",
         ],
@@ -828,6 +828,349 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
             fail(
                 "Generated outbound skill checker smoke test failed: "
                 + (success.stderr or success.stdout).strip()
+            )
+
+        temporal_execution_modes_md = valid_skill_md.replace(
+            (
+                "Execution mode: dry-run-then-batch-approval. Supported alternative is\n"
+                "approved-direct-execution when the binding level and runtime gate allow it."
+            ),
+            (
+                "Execution mode: dry-run-then-batch-approval.\n"
+                "This workflow is dry-run-only until batch approval is granted.\n"
+                "This workflow is not dry-run-only after the user approves the reviewed batch and runtime gate passes.\n"
+                "Supported alternative is approved-direct-execution when the binding level and runtime gate allow it."
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(temporal_execution_modes_md, encoding="utf-8")
+        temporal_execution_modes_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if temporal_execution_modes_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow temporal dry-run approval wording: "
+                + (
+                    temporal_execution_modes_success.stderr
+                    or temporal_execution_modes_success.stdout
+                ).strip()
+            )
+
+        provider_contract_policy_md = valid_skill_md.replace(
+            "Provider onboarding blocker: none.\n\n## Execution Modes",
+            (
+                "Provider onboarding blocker: none.\n\n"
+                "## Provider Onboarding Contract\n\n"
+                "Provider onboarding contract: readiness was not inferred from app connector tools "
+                "such as `mcp__codex_apps__call_e_zhiwen_dev._plan_call`; use configured host MCP route evidence only.\n\n"
+                "## Execution Modes"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(provider_contract_policy_md, encoding="utf-8")
+        provider_contract_policy_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if provider_contract_policy_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow provider contract policy prose: "
+                + (
+                    provider_contract_policy_success.stderr
+                    or provider_contract_policy_success.stdout
+                ).strip()
+            )
+
+        provider_contract_bad_evidence_md = valid_skill_md.replace(
+            "Provider onboarding blocker: none.\n\n## Execution Modes",
+            (
+                "Provider onboarding blocker: none.\n\n"
+                "## Provider Onboarding Contract\n\n"
+                "Provider onboarding completed based on "
+                "`mcp__codex_apps__call_e_zhiwen_dev._plan_call`.\n\n"
+                "## Execution Modes"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            provider_contract_bad_evidence_md,
+            encoding="utf-8",
+        )
+        provider_contract_bad_evidence_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        provider_contract_bad_evidence_output = (
+            provider_contract_bad_evidence_failure.stdout
+            + provider_contract_bad_evidence_failure.stderr
+        )
+        if provider_contract_bad_evidence_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject disallowed provider evidence "
+                "inside a Provider Onboarding Contract section when Provider Onboarding also exists."
+            )
+        if (
+            "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+            not in provider_contract_bad_evidence_output
+        ):
+            fail(
+                "Generated outbound skill checker provider-contract-bad-evidence message changed."
+            )
+
+        provider_contract_only_policy_md = valid_skill_md.replace(
+            "## Provider Onboarding\n\n",
+            "## Provider Onboarding Contract\n\n",
+        ).replace(
+            "Provider onboarding blocker: none.\n\n## Execution Modes",
+            (
+                "Provider onboarding blocker: none.\n"
+                "Provider onboarding contract: readiness was not inferred from app connector tools "
+                "such as `mcp__codex_apps__call_e_zhiwen_dev._plan_call`; use configured host MCP route evidence only.\n\n"
+                "## Execution Modes"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(provider_contract_only_policy_md, encoding="utf-8")
+        provider_contract_only_policy_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if provider_contract_only_policy_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow provider contract-only policy prose: "
+                + (
+                    provider_contract_only_policy_success.stderr
+                    or provider_contract_only_policy_success.stdout
+                ).strip()
+            )
+
+        documented_onboarding_headings_md = valid_skill_md.replace(
+            "## Source Onboarding\n\n",
+            "## Source Onboarding Contract\n\n",
+        ).replace(
+            "## Provider Onboarding\n\n",
+            "## Provider Onboarding Contract\n\n",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            documented_onboarding_headings_md,
+            encoding="utf-8",
+        )
+        documented_onboarding_headings_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if documented_onboarding_headings_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow documented onboarding contract headings: "
+                + (
+                    documented_onboarding_headings_success.stderr
+                    or documented_onboarding_headings_success.stdout
+                ).strip()
+            )
+
+        documented_onboarding_headings_after_placeholders_md = valid_skill_md.replace(
+            "## Source Onboarding\n\n",
+            (
+                "## Source Onboarding\n\n"
+                "Authentication or access check result: pending placeholder.\n"
+                "Sample fetch result: pending placeholder.\n\n"
+                "## Source Onboarding Contract\n\n"
+            ),
+        ).replace(
+            "## Provider Onboarding\n\n",
+            (
+                "## Provider Onboarding\n\n"
+                "MCP route setup check result: pending placeholder.\n"
+                "Provider authentication check result: pending placeholder.\n\n"
+            ),
+        ).replace(
+            "Provider onboarding blocker: none.\n\n## Execution Modes",
+            (
+                "Provider onboarding blocker: none.\n\n"
+                "## Provider Onboarding Contract\n\n"
+                "Provider onboarding contract: readiness was not inferred from app connector tools.\n\n"
+                "## Execution Modes"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            documented_onboarding_headings_after_placeholders_md,
+            encoding="utf-8",
+        )
+        documented_onboarding_headings_after_placeholders_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if documented_onboarding_headings_after_placeholders_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow documented onboarding contract sections after placeholders: "
+                + (
+                    documented_onboarding_headings_after_placeholders_success.stderr
+                    or documented_onboarding_headings_after_placeholders_success.stdout
+                ).strip()
+            )
+
+        bulleted_selected_values_md = valid_skill_md.replace(
+            "Binding level: parameterized-bound.",
+            "- Binding level: parameterized-bound.",
+        ).replace(
+            "Execution mode: dry-run-then-batch-approval.",
+            "- Execution mode: dry-run-then-batch-approval.",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            bulleted_selected_values_md,
+            encoding="utf-8",
+        )
+        bulleted_selected_values_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if bulleted_selected_values_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow bulleted selected binding and execution lines: "
+                + (
+                    bulleted_selected_values_success.stderr
+                    or bulleted_selected_values_success.stdout
+                ).strip()
+            )
+
+        structured_contract_md = valid_skill_md.replace(
+            """Source onboarding completed for this parameterized-bound workflow.
+Access route: local source credentials.
+Source access route discovery result: host-local route discovery completed before user route selection.
+Authentication or access check result: passed with local source credentials.
+Sample fetch result: passed with a representative source instance.
+Sampled source instance: representative-callback-source.
+Discovered field mapping: candidate_id, phone_e164, name, submitted_at, consent, and callback_reason.
+User-confirmed field mapping: confirmed after the representative sample was shown.
+Redaction policy for sample summaries: mask phone numbers and omit credentials.
+Default goal contract derived from sampled fields: call the respondent about callback_reason and summarize the result.
+Runtime parameters still allowed: date window and approved source instance identifiers.""",
+            """source_onboarding_report:
+  binding_level: parameterized-bound
+  source_family: google-form
+  access_method: local-oauth
+  access_route: local source credentials
+  source_access_route_discovery_result: host-local route discovery completed before user route selection
+  auth_or_access_check: passed with local source credentials
+  sample_fetch: passed with a representative source instance
+  sampled_source_instance: representative-callback-source
+  field_mapping: candidate_id, phone_e164, name, submitted_at, consent, and callback_reason
+  user_confirmed_field_mapping: confirmed after the representative sample was shown
+  redaction_policy_for_sample_summaries: mask phone numbers and omit credentials
+  default_goal_source: call the respondent about callback_reason and summarize the result
+  runtime_parameters_still_allowed: date window and approved source instance identifiers
+  onboarding_blocker: none""",
+        ).replace(
+            """Provider onboarding completed for the CALL-E MCP provider route.
+Provider host runtime: Codex.
+MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.
+Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.
+Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.
+Provider onboarding blocker: none.""",
+            """provider_onboarding_report:
+  provider_route: https://seleven-mcp-sg.airudder.com/mcp/openagent_oauth
+  provider_host_runtime: Codex
+  mcp_route_setup_check: passed with `codex mcp get calle-prod` for the required route
+  auth_readiness: passed with `codex mcp list` reporting OAuth for calle-prod
+  compatible_tools: plan_call, run_call, and get_call_run
+  one_off_call_capability: passed
+  provider_onboarding_blocker: none""",
+        )
+        (skill_dir / "SKILL.md").write_text(structured_contract_md, encoding="utf-8")
+        structured_contract_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if structured_contract_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow documented structured onboarding reports: "
+                + (
+                    structured_contract_success.stderr
+                    or structured_contract_success.stdout
+                ).strip()
+            )
+
+        structured_missing_user_confirmed_md = structured_contract_md.replace(
+            "  user_confirmed_field_mapping: confirmed after the representative sample was shown\n",
+            "",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            structured_missing_user_confirmed_md,
+            encoding="utf-8",
+        )
+        structured_missing_user_confirmed_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        structured_missing_user_confirmed_output = (
+            structured_missing_user_confirmed_failure.stdout
+            + structured_missing_user_confirmed_failure.stderr
+        )
+        if structured_missing_user_confirmed_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject structured reports without user-confirmed field mapping."
+            )
+        if (
+            "Bound generated skill SKILL.md must include user-confirmed field mapping"
+            not in structured_missing_user_confirmed_output
+        ):
+            fail(
+                "Generated outbound skill checker structured missing-user-confirmed message changed."
+            )
+
+        structured_missing_selected_binding_md = structured_contract_md.replace(
+            "Binding level: parameterized-bound.",
+            "Maximum binding level: parameterized-bound.",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            structured_missing_selected_binding_md,
+            encoding="utf-8",
+        )
+        structured_missing_selected_binding_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        structured_missing_selected_binding_output = (
+            structured_missing_selected_binding_failure.stdout
+            + structured_missing_selected_binding_failure.stderr
+        )
+        if structured_missing_selected_binding_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must not use source report binding_level as the selected binding level."
+            )
+        if (
+            "Generated skill SKILL.md must declare a selected binding level"
+            not in structured_missing_selected_binding_output
+        ):
+            fail(
+                "Generated outbound skill checker structured missing-selected-binding message changed."
             )
 
         other_agent_provider_onboarding_md = valid_skill_md.replace(
@@ -1217,6 +1560,482 @@ passes.
         skill_dir = Path(temp_dir) / "generated-callback-skill"
         references_dir = skill_dir / "references"
         references_dir.mkdir(parents=True)
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        for provider_evidence_list_prefix in ("- ", "* ", "+ ", "1. ", "1) "):
+            bulleted_inferred_provider_onboarding_md = valid_skill_md.replace(
+                "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
+                (
+                    f"{provider_evidence_list_prefix}Provider authentication check result: "
+                    "passed with host MCP route auth readiness inferred from available "
+                    "CALL-E-compatible MCP tools in the current host."
+                ),
+            ).replace(
+                "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.",
+                (
+                    f"{provider_evidence_list_prefix}Compatible MCP provider tools: "
+                    "`mcp__codex_apps__call_e_zhiwen_dev._plan_call`, "
+                    "`mcp__codex_apps__call_e_zhiwen_dev._run_call`, and "
+                    "`mcp__codex_apps__call_e_zhiwen_dev._get_call_run`."
+                ),
+            )
+            (skill_dir / "SKILL.md").write_text(
+                bulleted_inferred_provider_onboarding_md,
+                encoding="utf-8",
+            )
+
+            bulleted_inferred_provider_onboarding_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            bulleted_inferred_provider_onboarding_output = (
+                bulleted_inferred_provider_onboarding_failure.stdout
+                + bulleted_inferred_provider_onboarding_failure.stderr
+            )
+            if bulleted_inferred_provider_onboarding_failure.returncode == 0:
+                fail(
+                    "Generated outbound skill checker must reject bulleted provider onboarding "
+                    f"inferred from app tools with prefix {provider_evidence_list_prefix!r}."
+                )
+            if (
+                "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+                not in bulleted_inferred_provider_onboarding_output
+            ):
+                fail(
+                    "Generated outbound skill checker bulleted-inferred-provider-onboarding "
+                    f"message changed for prefix {provider_evidence_list_prefix!r}."
+                )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        continuation_line_provider_evidence_md = valid_skill_md.replace(
+            "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.",
+            (
+                "Compatible MCP provider tools:\n"
+                "- `mcp__codex_apps__call_e_zhiwen_dev._plan_call`\n"
+                "- `mcp__codex_apps__call_e_zhiwen_dev._run_call`\n"
+                "- `mcp__codex_apps__call_e_zhiwen_dev._get_call_run`"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            continuation_line_provider_evidence_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        continuation_line_provider_evidence_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        continuation_line_provider_evidence_output = (
+            continuation_line_provider_evidence_failure.stdout
+            + continuation_line_provider_evidence_failure.stderr
+        )
+        if continuation_line_provider_evidence_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject continuation-line provider onboarding app tools."
+            )
+        if (
+            "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+            not in continuation_line_provider_evidence_output
+        ):
+            fail(
+                "Generated outbound skill checker continuation-line-provider-evidence message changed."
+            )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        hard_wrapped_provider_evidence_md = valid_skill_md.replace(
+            "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
+            (
+                "Provider authentication check result: passed with host MCP route auth readiness\n"
+                "inferred from available CALL-E-compatible MCP tools in the current host."
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            hard_wrapped_provider_evidence_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        hard_wrapped_provider_evidence_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        hard_wrapped_provider_evidence_output = (
+            hard_wrapped_provider_evidence_failure.stdout
+            + hard_wrapped_provider_evidence_failure.stderr
+        )
+        if hard_wrapped_provider_evidence_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject hard-wrapped provider onboarding app evidence."
+            )
+        if (
+            "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+            not in hard_wrapped_provider_evidence_output
+        ):
+            fail(
+                "Generated outbound skill checker hard-wrapped-provider-evidence message changed."
+            )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        prefixed_provider_evidence_cases = (
+            (
+                "prefixed provider authentication evidence",
+                valid_skill_md.replace(
+                    "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
+                    "Evidence: Provider authentication check result: passed with host MCP route auth readiness inferred from available CALL-E-compatible MCP tools in the current host.",
+                ),
+            ),
+            (
+                "prefixed compatible provider tools evidence",
+                valid_skill_md.replace(
+                    "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.",
+                    "Evidence: Compatible MCP provider tools: `mcp__codex_apps__call_e_zhiwen_dev._plan_call`, `mcp__codex_apps__call_e_zhiwen_dev._run_call`, and `mcp__codex_apps__call_e_zhiwen_dev._get_call_run`.",
+                ),
+            ),
+        )
+        for prefixed_provider_evidence_label, prefixed_provider_evidence_md in (
+            prefixed_provider_evidence_cases
+        ):
+            (skill_dir / "SKILL.md").write_text(
+                prefixed_provider_evidence_md,
+                encoding="utf-8",
+            )
+
+            prefixed_provider_evidence_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            prefixed_provider_evidence_output = (
+                prefixed_provider_evidence_failure.stdout
+                + prefixed_provider_evidence_failure.stderr
+            )
+            if prefixed_provider_evidence_failure.returncode == 0:
+                fail(
+                    "Generated outbound skill checker must reject "
+                    f"{prefixed_provider_evidence_label}."
+                )
+            if (
+                "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+                not in prefixed_provider_evidence_output
+            ):
+                fail(
+                    "Generated outbound skill checker "
+                    f"{prefixed_provider_evidence_label} message changed."
+                )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        nested_child_label_provider_evidence_md = valid_skill_md.replace(
+            "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.",
+            (
+                "Compatible MCP provider tools:\n"
+                "- Tool namespace: `mcp__codex_apps__call_e_zhiwen_dev`"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            nested_child_label_provider_evidence_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        nested_child_label_provider_evidence_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        nested_child_label_provider_evidence_output = (
+            nested_child_label_provider_evidence_failure.stdout
+            + nested_child_label_provider_evidence_failure.stderr
+        )
+        if nested_child_label_provider_evidence_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject nested child-label provider onboarding app evidence."
+            )
+        if (
+            "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+            not in nested_child_label_provider_evidence_output
+        ):
+            fail(
+                "Generated outbound skill checker nested-child-label-provider-evidence message changed."
+            )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        provider_route_evidence_cases = (
+            (
+                "Provider route",
+                "Provider route: mcp__codex_apps__call_e_zhiwen_dev\n",
+            ),
+            (
+                "provider_route",
+                "provider_route: mcp__codex_apps__call_e_zhiwen_dev\n",
+            ),
+        )
+        for provider_route_evidence_label, provider_route_evidence_line in (
+            provider_route_evidence_cases
+        ):
+            provider_route_evidence_md = valid_skill_md.replace(
+                "Provider onboarding completed for the CALL-E MCP provider route.\n",
+                (
+                    "Provider onboarding completed for the CALL-E MCP provider route.\n"
+                    f"{provider_route_evidence_line}"
+                ),
+            )
+            (skill_dir / "SKILL.md").write_text(
+                provider_route_evidence_md,
+                encoding="utf-8",
+            )
+
+            provider_route_evidence_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            provider_route_evidence_output = (
+                provider_route_evidence_failure.stdout
+                + provider_route_evidence_failure.stderr
+            )
+            if provider_route_evidence_failure.returncode == 0:
+                fail(
+                    "Generated outbound skill checker must reject disallowed "
+                    f"{provider_route_evidence_label} provider evidence."
+                )
+            if (
+                "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+                not in provider_route_evidence_output
+            ):
+                fail(
+                    "Generated outbound skill checker disallowed "
+                    f"{provider_route_evidence_label} provider evidence message changed."
+                )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        one_off_capability_evidence_cases = (
+            (
+                "One-off call capability",
+                "One-off call capability: inferred from `mcp__codex_apps__call_e_zhiwen_dev._run_call`\n",
+            ),
+            (
+                "one_off_call_capability",
+                "one_off_call_capability: inferred from `mcp__codex_apps__call_e_zhiwen_dev._run_call`\n",
+            ),
+        )
+        for one_off_capability_evidence_label, one_off_capability_evidence_line in (
+            one_off_capability_evidence_cases
+        ):
+            one_off_capability_evidence_md = valid_skill_md.replace(
+                "Provider onboarding completed for the CALL-E MCP provider route.\n",
+                (
+                    "Provider onboarding completed for the CALL-E MCP provider route.\n"
+                    f"{one_off_capability_evidence_line}"
+                ),
+            )
+            (skill_dir / "SKILL.md").write_text(
+                one_off_capability_evidence_md,
+                encoding="utf-8",
+            )
+
+            one_off_capability_evidence_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            one_off_capability_evidence_output = (
+                one_off_capability_evidence_failure.stdout
+                + one_off_capability_evidence_failure.stderr
+            )
+            if one_off_capability_evidence_failure.returncode == 0:
+                fail(
+                    "Generated outbound skill checker must reject disallowed "
+                    f"{one_off_capability_evidence_label} provider evidence."
+                )
+            if (
+                "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+                not in one_off_capability_evidence_output
+            ):
+                fail(
+                    "Generated outbound skill checker disallowed "
+                    f"{one_off_capability_evidence_label} provider evidence message changed."
+                )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        later_nested_child_label_provider_evidence_md = valid_skill_md.replace(
+            "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.",
+            (
+                "Compatible MCP provider tools:\n"
+                "- Names: plan_call, run_call, get_call_run\n"
+                "- Namespace: `mcp__codex_apps__call_e_zhiwen_dev`"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            later_nested_child_label_provider_evidence_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        later_nested_child_label_provider_evidence_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        later_nested_child_label_provider_evidence_output = (
+            later_nested_child_label_provider_evidence_failure.stdout
+            + later_nested_child_label_provider_evidence_failure.stderr
+        )
+        if later_nested_child_label_provider_evidence_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject later nested child-label provider onboarding app evidence."
+            )
+        if (
+            "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+            not in later_nested_child_label_provider_evidence_output
+        ):
+            fail(
+                "Generated outbound skill checker later-nested-child-label-provider-evidence message changed."
+            )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        free_form_provider_evidence_md = valid_skill_md.replace(
+            "Provider onboarding completed for the CALL-E MCP provider route.\n",
+            (
+                "Provider onboarding completed for the CALL-E MCP provider route.\n"
+                "Provider onboarding completed based on `mcp__codex_apps__call_e_zhiwen_dev._plan_call`.\n"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            free_form_provider_evidence_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        free_form_provider_evidence_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        free_form_provider_evidence_output = (
+            free_form_provider_evidence_failure.stdout
+            + free_form_provider_evidence_failure.stderr
+        )
+        if free_form_provider_evidence_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject free-form provider onboarding app evidence."
+            )
+        if (
+            "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+            not in free_form_provider_evidence_output
+        ):
+            fail(
+                "Generated outbound skill checker free-form-provider-evidence message changed."
+            )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        contract_only_free_form_provider_evidence_md = valid_skill_md.replace(
+            "## Provider Onboarding\n\n",
+            "## Provider Onboarding Contract\n\n",
+        ).replace(
+            "Provider onboarding completed for the CALL-E MCP provider route.\n",
+            (
+                "Provider onboarding completed for the CALL-E MCP provider route.\n"
+                "Provider onboarding completed based on `mcp__codex_apps__call_e_zhiwen_dev._plan_call`.\n"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            contract_only_free_form_provider_evidence_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        contract_only_free_form_provider_evidence_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        contract_only_free_form_provider_evidence_output = (
+            contract_only_free_form_provider_evidence_failure.stdout
+            + contract_only_free_form_provider_evidence_failure.stderr
+        )
+        if contract_only_free_form_provider_evidence_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject contract-only free-form provider onboarding app evidence."
+            )
+        if (
+            "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools"
+            not in contract_only_free_form_provider_evidence_output
+        ):
+            fail(
+                "Generated outbound skill checker contract-only-free-form-provider-evidence message changed."
+            )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
         missing_mcp_route_setup_md = valid_skill_md.replace(
             "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.\n",
             "",
@@ -1518,6 +2337,1026 @@ Runtime parameters still allowed: date window and approved source instance ident
         ):
             fail("Generated outbound skill checker failed-sample-onboarding message changed.")
 
+    negated_onboarding_status_cases = [
+        (
+            "negated source authentication status",
+            valid_skill_md.replace(
+                "Authentication or access check result: passed with local source credentials.",
+                "Authentication or access check result: not verified because local source credentials are missing.",
+            ),
+            "Bound generated skill SKILL.md must include passed authentication or access check result",
+        ),
+        (
+            "negated sample fetch status",
+            valid_skill_md.replace(
+                "Sample fetch result: passed with a representative source instance.",
+                "Sample fetch result: not passed because source access is blocked.",
+            ),
+            "Bound generated skill SKILL.md must include passed sample fetch result",
+        ),
+        (
+            "negated provider route setup status",
+            valid_skill_md.replace(
+                "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.",
+                "MCP route setup check result: not completed because the CALL-E MCP route is missing.",
+            ),
+            "Bound generated skill SKILL.md must include passed MCP route setup check result",
+        ),
+        (
+            "negated provider authentication status",
+            valid_skill_md.replace(
+                "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
+                "Provider authentication check result: not verified because CALL-E MCP auth is missing.",
+            ),
+            "Bound generated skill SKILL.md must include passed provider authentication or auth readiness check result",
+        ),
+        (
+            "non-dry-run sample fetch not_run status",
+            valid_skill_md.replace(
+                "Sample fetch result: passed with a representative source instance.",
+                "Sample fetch result: not_run because source access is blocked.",
+            ),
+            "Bound generated skill SKILL.md must include passed sample fetch result",
+        ),
+        (
+            "non-dry-run provider route not run status",
+            valid_skill_md.replace(
+                "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.",
+                "MCP route setup check result: not run because provider onboarding is blocked.",
+            ),
+            "Bound generated skill SKILL.md must include passed MCP route setup check result",
+        ),
+    ]
+    for case_name, skill_md, expected_error in negated_onboarding_status_cases:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skill_dir = Path(temp_dir) / "generated-callback-skill"
+            references_dir = skill_dir / "references"
+            references_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(skill_md, encoding="utf-8")
+            (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+            (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+            negated_status_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            negated_status_output = (
+                negated_status_failure.stdout + negated_status_failure.stderr
+            )
+            if negated_status_failure.returncode == 0:
+                fail(f"Generated outbound skill checker must reject {case_name}.")
+            if expected_error not in negated_status_output:
+                fail(
+                    "Generated outbound skill checker "
+                    + case_name
+                    + " message changed."
+                )
+
+    source_placeholder_status_md = valid_skill_md.replace(
+        "Authentication or access check result: passed with local source credentials.",
+        (
+            "Authentication or access check result: pending placeholder example.\n"
+            "Authentication or access check result: passed with local source credentials."
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(source_placeholder_status_md, encoding="utf-8")
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        source_placeholder_status_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if source_placeholder_status_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must scan source status lines after placeholders: "
+                + (
+                    source_placeholder_status_success.stderr
+                    or source_placeholder_status_success.stdout
+                ).strip()
+            )
+
+    provider_placeholder_status_md = valid_skill_md.replace(
+        "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.",
+        (
+            "MCP route setup check result: pending placeholder example.\n"
+            "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route."
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(provider_placeholder_status_md, encoding="utf-8")
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        provider_placeholder_status_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if provider_placeholder_status_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must scan provider status lines after placeholders: "
+                + (
+                    provider_placeholder_status_success.stderr
+                    or provider_placeholder_status_success.stdout
+                ).strip()
+            )
+
+    subheading_placeholder_cases = [
+        (
+            "source onboarding subheading placeholder",
+            valid_skill_md.replace(
+                "## Source Onboarding\n\n",
+                (
+                    "## Draft Source Notes\n\n"
+                    "### Source Onboarding\n\n"
+                    "Authentication or access check result: pending placeholder.\n"
+                    "Sample fetch result: pending placeholder.\n\n"
+                    "## Source Onboarding\n\n"
+                ),
+            ),
+        ),
+        (
+            "provider onboarding subheading placeholder",
+            valid_skill_md.replace(
+                "## Provider Onboarding\n\n",
+                (
+                    "## Draft Provider Notes\n\n"
+                    "### Provider Onboarding\n\n"
+                    "MCP route setup check result: pending placeholder.\n"
+                    "Provider authentication check result: pending placeholder.\n\n"
+                    "## Provider Onboarding\n\n"
+                ),
+            ),
+        ),
+    ]
+    for case_name, skill_md in subheading_placeholder_cases:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skill_dir = Path(temp_dir) / "generated-callback-skill"
+            references_dir = skill_dir / "references"
+            references_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(skill_md, encoding="utf-8")
+            (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+            (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+            subheading_placeholder_success = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if subheading_placeholder_success.returncode != 0:
+                fail(
+                    "Generated outbound skill checker must ignore "
+                    + case_name
+                    + ": "
+                    + (
+                        subheading_placeholder_success.stderr
+                        or subheading_placeholder_success.stdout
+                    ).strip()
+                )
+
+    dry_run_only_source_blocker_md = valid_skill_md.replace(
+        "Source onboarding completed for this parameterized-bound workflow.",
+        "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
+    ).replace(
+        "Authentication or access check result: passed with local source credentials.",
+        "Authentication or access check result: not passed because onboarding is blocked.",
+    ).replace(
+        "Sample fetch result: passed with a representative source instance.",
+        "Sample fetch result: missing because source access is blocked.",
+    ).replace(
+        "Sampled source instance: representative-callback-source.\n",
+        "",
+    ).replace(
+        "Discovered field mapping: candidate_id, phone_e164, name, submitted_at, consent, and callback_reason.\n",
+        "",
+    ).replace(
+        "User-confirmed field mapping: confirmed after the representative sample was shown.\n",
+        "",
+    ).replace(
+        "Default goal contract derived from sampled fields: call the respondent about callback_reason and summarize the result.\n",
+        "Onboarding blocker: source access is blocked until credentials are refreshed.\n",
+    ).replace(
+        "Execution mode: dry-run-then-batch-approval.",
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+    )
+
+    execution_section_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+        (
+            "Execution mode: dry-run-then-batch-approval.\n"
+            "This workflow is dry-run-only until onboarding is complete."
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            execution_section_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        execution_section_dry_run_only_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if execution_section_dry_run_only_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow execution-section dry-run-only blockers: "
+                + (
+                    execution_section_dry_run_only_blocker_success.stderr
+                    or execution_section_dry_run_only_blocker_success.stdout
+                ).strip()
+            )
+
+    generated_skill_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+        (
+            "Execution mode: dry-run-then-batch-approval.\n"
+            "The generated skill must remain dry-run-only until onboarding is complete."
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            generated_skill_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        generated_skill_dry_run_only_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if generated_skill_dry_run_only_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow generated-skill dry-run-only blockers: "
+                + (
+                    generated_skill_dry_run_only_blocker_success.stderr
+                    or generated_skill_dry_run_only_blocker_success.stdout
+                ).strip()
+            )
+
+    keeps_generated_skill_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
+        (
+            "Source onboarding recorded an onboarding blocker. "
+            "The blocker keeps the generated skill dry-run-only until onboarding is complete."
+        ),
+    ).replace(
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+        "Execution mode: dry-run-then-batch-approval.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            keeps_generated_skill_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        keeps_generated_skill_dry_run_only_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if keeps_generated_skill_dry_run_only_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow blocker-keeps-dry-run-only wording: "
+                + (
+                    keeps_generated_skill_dry_run_only_blocker_success.stderr
+                    or keeps_generated_skill_dry_run_only_blocker_success.stdout
+                ).strip()
+            )
+
+    source_section_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
+        (
+            "Source onboarding recorded an onboarding blocker. "
+            "This workflow remains dry-run-only until onboarding is complete."
+        ),
+    ).replace(
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+        "Execution mode: dry-run-then-batch-approval.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            source_section_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        source_section_dry_run_only_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if source_section_dry_run_only_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow source-section dry-run-only blockers: "
+                + (
+                    source_section_dry_run_only_blocker_success.stderr
+                    or source_section_dry_run_only_blocker_success.stdout
+                ).strip()
+            )
+
+    safety_section_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
+        "Source onboarding recorded an onboarding blocker.",
+    ).replace(
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+        "Execution mode: dry-run-then-batch-approval.",
+    ).replace(
+        "no hidden recurring schedules, no credential exposure, and clear cancellation behavior.",
+        (
+            "no hidden recurring schedules, no credential exposure, and clear cancellation behavior. "
+            "This skill remains dry-run-only until onboarding is complete."
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            safety_section_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        safety_section_dry_run_only_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if safety_section_dry_run_only_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow safety-section dry-run-only blockers: "
+                + (
+                    safety_section_dry_run_only_blocker_success.stderr
+                    or safety_section_dry_run_only_blocker_success.stdout
+                ).strip()
+            )
+
+    contradictory_source_dry_run_only_blocker_md = source_section_dry_run_only_blocker_md.replace(
+        "no hidden recurring schedules, no credential exposure, and clear cancellation behavior.",
+        (
+            "no hidden recurring schedules, no credential exposure, and clear cancellation behavior. "
+            "This workflow is not dry-run-only."
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            contradictory_source_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        contradictory_source_dry_run_only_blocker_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        contradictory_source_dry_run_only_blocker_output = (
+            contradictory_source_dry_run_only_blocker_failure.stdout
+            + contradictory_source_dry_run_only_blocker_failure.stderr
+        )
+        if contradictory_source_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject contradictory source dry-run-only blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in contradictory_source_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker contradictory source dry-run-only blocker message changed.")
+
+    missing_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
+        "Source onboarding recorded an onboarding blocker.",
+    ).replace(
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+        "Execution mode: dry-run-then-batch-approval.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            missing_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        missing_dry_run_only_blocker_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        missing_dry_run_only_blocker_output = (
+            missing_dry_run_only_blocker_failure.stdout
+            + missing_dry_run_only_blocker_failure.stderr
+        )
+        if missing_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject blockers without dry-run-only status.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in missing_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker missing-dry-run-only blocker message changed.")
+
+    outside_section_dry_run_only_blocker_md = missing_dry_run_only_blocker_md.replace(
+        "Candidate fields include candidate_id, name, phone_e164, timezone, and callback_reason.",
+        (
+            "This workflow remains dry-run-only until onboarding is complete.\n"
+            "Candidate fields include candidate_id, name, phone_e164, timezone, and callback_reason."
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            outside_section_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        outside_section_dry_run_only_blocker_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        outside_section_dry_run_only_blocker_output = (
+            outside_section_dry_run_only_blocker_failure.stdout
+            + outside_section_dry_run_only_blocker_failure.stderr
+        )
+        if outside_section_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must ignore dry-run-only text outside allowed sections.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in outside_section_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker outside-section dry-run-only blocker message changed.")
+
+    not_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
+        "Source onboarding recorded an onboarding blocker.",
+    ).replace(
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+        "Execution mode: dry-run-then-batch-approval. This workflow is not dry-run-only.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            not_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        not_dry_run_only_blocker_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        not_dry_run_only_blocker_output = (
+            not_dry_run_only_blocker_failure.stdout
+            + not_dry_run_only_blocker_failure.stderr
+        )
+        if not_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject non-dry-run-only blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in not_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker non-dry-run-only blocker message changed.")
+
+    negated_dry_run_only_variants = [
+        "This workflow is not-dry-run-only.",
+        "This workflow is not_dry_run_only.",
+    ]
+    for negated_dry_run_only_variant in negated_dry_run_only_variants:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skill_dir = Path(temp_dir) / "generated-callback-skill"
+            references_dir = skill_dir / "references"
+            references_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(
+                not_dry_run_only_blocker_md.replace(
+                    "This workflow is not dry-run-only.",
+                    negated_dry_run_only_variant,
+                ),
+                encoding="utf-8",
+            )
+            (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+            (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+            negated_dry_run_only_variant_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            negated_dry_run_only_variant_output = (
+                negated_dry_run_only_variant_failure.stdout
+                + negated_dry_run_only_variant_failure.stderr
+            )
+            if negated_dry_run_only_variant_failure.returncode == 0:
+                fail("Generated outbound skill checker must reject all non-dry-run-only blockers.")
+            if (
+                "Bound generated skill SKILL.md must include passed authentication or access check result"
+                not in negated_dry_run_only_variant_output
+            ):
+                fail(
+                    "Generated outbound skill checker non-dry-run-only variant message changed."
+                )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            dry_run_only_source_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        dry_run_only_source_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if dry_run_only_source_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow dry-run-only source blockers: "
+                + (
+                    dry_run_only_source_blocker_success.stderr
+                    or dry_run_only_source_blocker_success.stdout
+                ).strip()
+            )
+
+    dry_run_only_source_not_run_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Sample fetch result: missing because source access is blocked.",
+        "Sample fetch result: not_run because source access is blocked.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            dry_run_only_source_not_run_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        dry_run_only_source_not_run_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if dry_run_only_source_not_run_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow dry-run-only source not_run blockers: "
+                + (
+                    dry_run_only_source_not_run_blocker_success.stderr
+                    or dry_run_only_source_not_run_blocker_success.stdout
+                ).strip()
+            )
+
+    dry_run_only_source_snake_negated_blocker_md = dry_run_only_source_blocker_md.replace(
+        "Authentication or access check result: not passed because onboarding is blocked.",
+        "Authentication or access check result: not_verified because onboarding is blocked.",
+    ).replace(
+        "Sample fetch result: missing because source access is blocked.",
+        "Sample fetch result: not-passed because source access is blocked.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            dry_run_only_source_snake_negated_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        dry_run_only_source_snake_negated_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if dry_run_only_source_snake_negated_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow dry-run-only source snake-case negated blockers: "
+                + (
+                    dry_run_only_source_snake_negated_blocker_success.stderr
+                    or dry_run_only_source_snake_negated_blocker_success.stdout
+                ).strip()
+            )
+
+    dry_run_only_provider_blocker_md = valid_skill_md.replace(
+        "Provider onboarding completed for the CALL-E MCP provider route.",
+        "Provider onboarding recorded a provider onboarding blocker for this dry-run-only workflow.",
+    ).replace(
+        "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.",
+        "MCP route setup check result: blocked until the CALL-E MCP route is configured.",
+    ).replace(
+        "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
+        "Provider authentication check result: not verified because provider onboarding is blocked.",
+    ).replace(
+        "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.\n",
+        "",
+    ).replace(
+        "Provider onboarding blocker: none.",
+        "Provider onboarding blocker: CALL-E MCP route auth is not ready.",
+    ).replace(
+        "Execution mode: dry-run-then-batch-approval.",
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+    )
+
+    provider_section_dry_run_only_blocker_md = dry_run_only_provider_blocker_md.replace(
+        "Provider onboarding recorded a provider onboarding blocker for this dry-run-only workflow.",
+        (
+            "Provider onboarding recorded a provider onboarding blocker. "
+            "This skill remains dry-run-only until onboarding is complete."
+        ),
+    ).replace(
+        "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
+        "Execution mode: dry-run-then-batch-approval.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            provider_section_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        provider_section_dry_run_only_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if provider_section_dry_run_only_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow provider-section dry-run-only blockers: "
+                + (
+                    provider_section_dry_run_only_blocker_success.stderr
+                    or provider_section_dry_run_only_blocker_success.stdout
+                ).strip()
+            )
+
+    contradictory_provider_dry_run_only_blocker_md = provider_section_dry_run_only_blocker_md.replace(
+        "Source onboarding completed for this parameterized-bound workflow.",
+        (
+            "Source onboarding completed for this parameterized-bound workflow. "
+            "This skill is not dry-run-only."
+        ),
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            contradictory_provider_dry_run_only_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        contradictory_provider_dry_run_only_blocker_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        contradictory_provider_dry_run_only_blocker_output = (
+            contradictory_provider_dry_run_only_blocker_failure.stdout
+            + contradictory_provider_dry_run_only_blocker_failure.stderr
+        )
+        if contradictory_provider_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject contradictory provider dry-run-only blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed MCP route setup check result"
+            not in contradictory_provider_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker contradictory provider dry-run-only blocker message changed.")
+
+    dry_run_only_provider_snake_negated_blocker_md = dry_run_only_provider_blocker_md.replace(
+        "Provider authentication check result: not verified because provider onboarding is blocked.",
+        "Provider authentication check result: not_verified because provider onboarding is blocked.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            dry_run_only_provider_snake_negated_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        dry_run_only_provider_snake_negated_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if dry_run_only_provider_snake_negated_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow dry-run-only provider snake-case negated blockers: "
+                + (
+                    dry_run_only_provider_snake_negated_blocker_success.stderr
+                    or dry_run_only_provider_snake_negated_blocker_success.stdout
+                ).strip()
+            )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            dry_run_only_provider_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        dry_run_only_provider_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if dry_run_only_provider_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow dry-run-only provider blockers: "
+                + (
+                    dry_run_only_provider_blocker_success.stderr
+                    or dry_run_only_provider_blocker_success.stdout
+                ).strip()
+            )
+
+    dry_run_only_provider_not_run_blocker_md = dry_run_only_provider_blocker_md.replace(
+        "MCP route setup check result: blocked until the CALL-E MCP route is configured.",
+        "MCP route setup check result: not run because provider onboarding is blocked.",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            dry_run_only_provider_not_run_blocker_md,
+            encoding="utf-8",
+        )
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        dry_run_only_provider_not_run_blocker_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if dry_run_only_provider_not_run_blocker_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow dry-run-only provider not-run blockers: "
+                + (
+                    dry_run_only_provider_not_run_blocker_success.stderr
+                    or dry_run_only_provider_not_run_blocker_success.stdout
+                ).strip()
+            )
+
+    conflicting_status_cases = [
+        (
+            "conflicting source authentication status",
+            dry_run_only_source_blocker_md.replace(
+                "Authentication or access check result: not passed because onboarding is blocked.",
+                (
+                    "Authentication or access check result: not passed because onboarding is blocked.\n"
+                    "Authentication or access check result: passed with local source credentials."
+                ),
+            ),
+            "Generated skill SKILL.md has conflicting passed authentication or access check result lines",
+        ),
+        (
+            "conflicting provider authentication status",
+            dry_run_only_provider_blocker_md.replace(
+                "Provider authentication check result: not verified because provider onboarding is blocked.",
+                (
+                    "Provider authentication check result: not verified because provider onboarding is blocked.\n"
+                    "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod."
+                ),
+            ),
+            "Generated skill SKILL.md has conflicting passed provider authentication or auth readiness check result lines",
+        ),
+    ]
+    for case_name, skill_md, expected_error in conflicting_status_cases:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skill_dir = Path(temp_dir) / "generated-callback-skill"
+            references_dir = skill_dir / "references"
+            references_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(skill_md, encoding="utf-8")
+            (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+            (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+            conflicting_status_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            conflicting_status_output = (
+                conflicting_status_failure.stdout + conflicting_status_failure.stderr
+            )
+            if conflicting_status_failure.returncode == 0:
+                fail(f"Generated outbound skill checker must reject {case_name}.")
+            if expected_error not in conflicting_status_output:
+                fail(
+                    "Generated outbound skill checker "
+                    + case_name
+                    + " message changed."
+                )
+
+    dry_run_only_blocker_failure_cases = [
+        (
+            "dry-run-only source blocker without blocker field",
+            dry_run_only_source_blocker_md.replace(
+                "Onboarding blocker: source access is blocked until credentials are refreshed.\n",
+                "",
+            ),
+            "Dry-run-only blocked source onboarding must include a non-empty onboarding blocker",
+        ),
+        (
+            "dry-run-only source blocker with none blocker",
+            dry_run_only_source_blocker_md.replace(
+                "Onboarding blocker: source access is blocked until credentials are refreshed.",
+                "Onboarding blocker: none.",
+            ),
+            "Dry-run-only blocked source onboarding must include a non-empty onboarding blocker",
+        ),
+        (
+            "dry-run-only source blocker with contradictory none blocker",
+            dry_run_only_source_blocker_md.replace(
+                "Onboarding blocker: source access is blocked until credentials are refreshed.",
+                (
+                    "Onboarding blocker: source access is blocked until credentials are refreshed.\n"
+                    "Onboarding blocker: none."
+                ),
+            ),
+            "Dry-run-only blocked source onboarding must include a non-empty onboarding blocker",
+        ),
+        (
+            "dry-run-only provider blocker without blocker field",
+            dry_run_only_provider_blocker_md.replace(
+                "Provider onboarding blocker: CALL-E MCP route auth is not ready.\n",
+                "",
+            ),
+            "Dry-run-only blocked provider onboarding must include a non-empty provider onboarding blocker",
+        ),
+        (
+            "dry-run-only provider blocker with none blocker",
+            dry_run_only_provider_blocker_md.replace(
+                "Provider onboarding blocker: CALL-E MCP route auth is not ready.",
+                "Provider onboarding blocker: none.",
+            ),
+            "Dry-run-only blocked provider onboarding must include a non-empty provider onboarding blocker",
+        ),
+        (
+            "dry-run-only provider blocker with contradictory none blocker",
+            dry_run_only_provider_blocker_md.replace(
+                "Provider onboarding blocker: CALL-E MCP route auth is not ready.",
+                (
+                    "Provider onboarding blocker: CALL-E MCP route auth is not ready.\n"
+                    "Provider onboarding blocker: none."
+                ),
+            ),
+            "Dry-run-only blocked provider onboarding must include a non-empty provider onboarding blocker",
+        ),
+    ]
+    for case_name, skill_md, expected_error in dry_run_only_blocker_failure_cases:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skill_dir = Path(temp_dir) / "generated-callback-skill"
+            references_dir = skill_dir / "references"
+            references_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(skill_md, encoding="utf-8")
+            (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+            (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+            dry_run_only_blocker_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            dry_run_only_blocker_output = (
+                dry_run_only_blocker_failure.stdout
+                + dry_run_only_blocker_failure.stderr
+            )
+            if dry_run_only_blocker_failure.returncode == 0:
+                fail(f"Generated outbound skill checker must reject {case_name}.")
+            if expected_error not in dry_run_only_blocker_output:
+                fail(
+                    "Generated outbound skill checker "
+                    + case_name
+                    + " message changed."
+                )
+
     with tempfile.TemporaryDirectory() as temp_dir:
         skill_dir = Path(temp_dir) / "generated-callback-skill"
         references_dir = skill_dir / "references"
@@ -1578,6 +3417,36 @@ Runtime parameters still allowed: date window and approved source instance ident
             fail("Generated outbound skill checker unsupported-execution message changed.")
 
     unsupported_binding_level = "un" + "bound-" + "generic"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        skill_dir = Path(temp_dir) / "generated-callback-skill"
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        maximum_only_binding_md = valid_skill_md.replace(
+            "Binding level: parameterized-bound.",
+            "Maximum binding level: parameterized-bound.",
+        )
+        (skill_dir / "SKILL.md").write_text(maximum_only_binding_md, encoding="utf-8")
+        (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+        (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+        maximum_only_binding_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        maximum_only_binding_output = (
+            maximum_only_binding_failure.stdout + maximum_only_binding_failure.stderr
+        )
+        if maximum_only_binding_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject missing selected binding level.")
+        if (
+            "Generated skill SKILL.md must declare a selected binding level"
+            not in maximum_only_binding_output
+        ):
+            fail("Generated outbound skill checker missing-selected-binding message changed.")
 
     with tempfile.TemporaryDirectory() as temp_dir:
         skill_dir = Path(temp_dir) / "generated-callback-skill"

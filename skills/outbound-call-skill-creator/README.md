@@ -56,7 +56,7 @@ platforms.
 
 - An Agent Skills-compatible host that can load this skill.
 - Access to a supported source family when creating a generated business skill:
-  Google Forms, TikTok Ads, local CSV, or a custom approved source.
+  Google Forms, TikTok Ads, Notion, local CSV, or a custom approved source.
 - A verified outreach basis or consent rule for every callable record.
 - E.164 formatted phone numbers for real calls.
 - A stable dedupe key or dedupe state rule.
@@ -68,6 +68,11 @@ For TikTok Ads workflows, the creator may use the TikTok for Business MCP server
 or another approved TikTok Ads access route if it is available in the host. The
 skill itself does not require TikTok Ads access unless the generated workflow is
 for TikTok Ads records.
+
+For Notion workflows, the creator may use an approved Notion MCP server, Notion
+API connection, integration token, or managed connector route if it is available
+in the host. The skill itself does not require Notion access unless the generated
+workflow is for Notion records.
 
 For real outbound calls, generated skills use the default CALL-E MCP provider
 route unless the generated skill explicitly documents another approved one-off
@@ -83,7 +88,7 @@ The creator captures these workflow choices during skill generation:
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| Source family | User-selected | Built-in choices are `google-form`, `tiktok-ads`, `local-csv`, and `other`. |
+| Source family | User-selected | Built-in choices are `google-form`, `tiktok-ads`, `notion`, `local-csv`, and `other`. |
 | Binding level | `parameterized-bound` | Use `fully-bound` only when one fixed source and result target should be locked at creation time. |
 | Execution mode | `dry-run-then-batch-approval` | `approved-direct-execution` is available only after required gates pass. |
 | Provider route | CALL-E MCP route | Real-call skills must verify route setup, authentication, and compatible tools before calls. |
@@ -105,7 +110,7 @@ generated-skill checker should or should not change.
 | No callable candidates appear | Check phone field mapping, outreach basis, consent field, date filters, and dedupe state. |
 | Provider is not ready | Verify the MCP provider route is configured, authenticated, and exposes compatible one-off call tools. |
 | Result output is blocked | Confirm the writeback target, source-adjacent artifact, or local CSV path is writable and durable. |
-| Runtime request is too vague | Provide the approved runtime parameters, such as form ID, CSV path, campaign ID, date window, or output path. |
+| Runtime request is too vague | Provide the approved runtime parameters, such as form ID, Notion database or data source ID, CSV path, campaign ID, date window, or output path. |
 
 ## Limitations And Safety Notes
 

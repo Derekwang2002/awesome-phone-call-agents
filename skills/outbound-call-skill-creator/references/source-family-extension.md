@@ -7,6 +7,7 @@ The current built-in source families are:
 
 - `google-form`
 - `tiktok-ads`
+- `notion`
 - `local-csv`
 - `other`
 

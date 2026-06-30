@@ -38,7 +38,7 @@ Choose whether the workflow stays at the minimum binding level or upgrades to a 
 | Binding level | What must be fixed at creation time | What may be supplied at runtime |
 | --- | --- | --- |
 | `fully-bound` | Concrete source instance, field names, source-level outreach basis or consent rule, dedupe key, fixed result target, and result fields. The result target can be source writeback, a source-adjacent result artifact, or a local result CSV. | Date window, subset filters, and other narrow processing controls. |
-| `parameterized-bound` | Source family, access method, required schema, source-level outreach basis or consent rule, dedupe key, result-output policy, and result field schema. | Approved instance parameters such as form ID, CSV path, campaign ID, date window, source writeback target, source-adjacent artifact target, or output path. |
+| `parameterized-bound` | Source family, access method, required schema, source-level outreach basis or consent rule, dedupe key, result-output policy, and result field schema. | Approved instance parameters such as form ID, Notion database or data source ID, CSV path, campaign ID, date window, source writeback target, source-adjacent artifact target, or output path. |
 
 Default to the minimum `parameterized-bound` contract. Use `fully-bound` for stable production or scheduled workflows that should fix a concrete source and durable result-output target. If the workflow cannot support the minimum contract, continue onboarding or stop before generating the skill.
 
@@ -62,7 +62,7 @@ Treat source writeback narrowly: it updates the bound source instance or canonic
 
 ## Authenticated Source Onboarding
 
-Use this order for every authenticated or connector-backed source family, including Google Forms, TikTok Ads, and future sources that require OAuth, MCP auth, API keys, managed connector auth, or workspace permissions.
+Use this order for every authenticated or connector-backed source family, including Google Forms, TikTok Ads, Notion, and future sources that require OAuth, MCP auth, API keys, managed connector auth, or workspace permissions.
 
 For any authenticated or connector-backed source family, do not ask the user to manually provide the full field mapping before source access has been checked and a representative sample has been fetched.
 
@@ -81,7 +81,7 @@ When a safe source authorization or auth-readiness action is available, start it
 7. Show a redacted sample summary and proposed field mapping for user confirmation.
 8. Ask the user to fill only fields that cannot be inferred from the sample.
 
-When the user names only an authenticated source family such as `google-form` or `tiktok-ads`, treat that as enough to recommend a likely workflow and provisional call goal, then enter source access onboarding. First inspect available host routes and run any safe auth-readiness or discovery check. The next prompt should ask only for the minimum locator or user-completed authorization step that remains necessary to fetch a representative sample. Do not ask for detailed field mapping, final goal-field selection, or result-output mapping before the access check and sample fetch have been attempted.
+When the user names only an authenticated source family such as `google-form`, `tiktok-ads`, or `notion`, treat that as enough to recommend a likely workflow and provisional call goal, then enter source access onboarding. First inspect available host routes and run any safe auth-readiness or discovery check. The next prompt should ask only for the minimum locator or user-completed authorization step that remains necessary to fetch a representative sample. Do not ask for detailed field mapping, final goal-field selection, or result-output mapping before the access check and sample fetch have been attempted.
 
 Do not present a blank manual mapping form for phone, recipient, consent, dedupe, goal inputs, or result-output fields before authentication and sample fetch have been attempted. If access or sample fetch is blocked before the minimum source contract can be confirmed, record the blocker and stop before generating the skill.
 
@@ -166,6 +166,59 @@ During creation-time onboarding, fetch a small sample through the exact MCP tool
 Do not invent TikTok Ads MCP tools or schemas. If the host does not expose a writeback-capable tool but does expose a same-account or same-workspace artifact action, configure `source-adjacent-result-artifact` and record the artifact container, schema, and append or upsert behavior. If neither source writeback nor source-adjacent output is available, configure a new local result CSV output path. Use session-table output only as a last-resort non-persistent fallback when durable output cannot be verified.
 
 For `fully-bound`, capture the concrete account, advertiser, campaign, or lead scope and source writeback tool, source-adjacent artifact target, or local result CSV target. For `parameterized-bound`, capture the exact MCP tools, required returned fields, and result field schema, then allow runtime account or campaign identifiers only when the runtime gate confirms the returned schema.
+
+## Notion
+
+Use `notion` when records come from a Notion database, data source, or database-like table exposed through an approved Notion API, MCP, integration token, or managed connector route.
+
+Default access route:
+
+```text
+source family: `notion`
+access method: Notion API, MCP, integration token, or managed connector
+source locator: Notion database URL or ID, Notion data source ID, or managed connector resource locator
+```
+
+Treat a Notion data source as the canonical record source. A Notion database can contain one or more data sources, so database IDs and database URLs are accepted locators but must be resolved to a concrete data source before schema sampling, candidate validation, or real-call execution.
+
+Capture:
+
+- Notion route type, such as API, MCP, integration token, or managed connector
+- access method and route used for onboarding
+- authentication, token, connector, workspace permission, or MCP resource access check result
+- supplied source locator: database URL, database ID, data source ID, or managed connector resource locator
+- canonical data source ID after locator resolution
+- database ID and data source name when a database locator is supplied
+- resolution result when a database contains zero, one, or multiple data sources
+- sampled data source ID or representative runtime data source ID
+- sample fetch result and redacted sample summary from queried pages
+- property names and property types returned by the data source schema
+- created-time, last-edited-time, date property, status property, or other date-window filtering semantics
+- page ID or other stable page reference
+- E.164 phone-number property
+- recipient label property
+- dedupe key, normally page ID unless a stable business identifier property is configured
+- goal input properties
+- source-level outreach basis or consent evidence, such as an approved database purpose, workspace policy, or per-page consent/status property
+- source writeback page properties, source-adjacent result artifact target, or local result CSV output policy for status, result summary, call run ID, and processed timestamp
+
+Generated Notion skills must not assume every page in a database or data source is callable. They must validate outreach basis or consent, E.164 phone numbers, and the configured candidate filter before creating call candidates.
+
+Do not ask for Notion field mapping before Notion access has been verified, the locator has been resolved to a canonical data source, the data source schema has been retrieved, and a representative page sample has been fetched.
+
+For Notion database locators, resolve the locator before sampling:
+
+1. If a data source ID is supplied, retrieve that data source directly and use it as the canonical source instance.
+2. If a database URL or database ID is supplied, retrieve the database and inspect its data sources.
+3. If the database contains exactly one data source, use that data source as the canonical source instance.
+4. If the database contains multiple data sources, ask the user to choose the data source by name or ID before sampling.
+5. If the database contains no accessible data sources, record a source onboarding blocker and stop before generating a real-call skill.
+
+During creation-time onboarding, retrieve the canonical data source schema and query a small sample of pages through the exact Notion API, MCP tool, resource, or connector action exposed by the host. Record the tool or route names, locator resolution, sampled data source ID, returned property names and types, and redaction rule in the generated skill.
+
+Treat Notion source writeback narrowly: updating call results on the source record means updating page properties on the sampled or runtime-matched pages. Do not describe updating a Notion data source schema as source writeback. If result fields do not already exist and creation of new properties is required, treat that as a schema-changing side effect that must be explicitly configured and approved before runtime. If the host cannot verify safe page-property writeback, configure a source-adjacent result artifact in the same Notion workspace or a new local result CSV. Use session-table output only as a last-resort non-persistent fallback when durable output cannot be verified.
+
+For `fully-bound`, capture the concrete database or data source locator, canonical data source ID, field mapping, candidate filter, and fixed page-property writeback target, source-adjacent result artifact, or local result CSV target. For `parameterized-bound`, capture the required data source schema and result field schema, then allow runtime database or data source identifiers only when the runtime gate resolves them to a data source and confirms the schema and result-output contract.
 
 ## Local CSV
 

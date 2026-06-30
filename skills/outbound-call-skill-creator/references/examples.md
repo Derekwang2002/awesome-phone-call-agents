@@ -64,7 +64,7 @@ I could not find a usable local OAuth helper or Google Forms connector in this h
 - an Apps Script fallback endpoint
 ```
 
-If the user replies only `google-form`, recommend the likely workflow and provisional call goal before asking for source access details. The same pattern applies when the user replies only `tiktok-ads`: recommend a likely lead follow-up workflow, inspect available TikTok Ads MCP tools or resources, verify or request authentication, then ask for the exact MCP tool, resource, account, campaign, or managed connector route only if no usable route can be discovered or a concrete scope is still required. If a safe auth action is available, I will start it before asking for another confirmation; I will not ask the user to say `start auth`, choose a discovered route, or refresh the session before attempting the available non-mutating auth path. If this host has no TikTok Ads MCP server configured, I will ask whether to add the default route before running `codex mcp add`; after approval I will inspect it with `codex mcp get tiktok-ads` and `codex mcp list`. If Codex reports `Auth: Unsupported`, I will treat that only as missing Codex-managed OAuth. When the route is configured but tools are not exposed, I will run `codex mcp login tiktok-ads` or the host's equivalent source MCP login before asking for a different route or session refresh. When TikTok Ads tools or resources are exposed, I will run a source-native read-only auth or inventory probe such as `auth_advertiser_get` before declaring a blocker; only if the available auth path and probe fail or no tools are exposed will I ask for a supported token, managed connector, host-specific login path, or another approved route. If the user replies only `notion`, recommend a likely workflow for approved records in a Notion database or data source, inspect available Notion API, MCP, integration-token, or managed connector routes, verify or request authentication, then ask for a database URL, database ID, data source ID, or managed connector resource locator only if no usable route can discover accessible sources. If a database locator is supplied, resolve it to a canonical data source before asking for field mapping.
+If the user replies only `google-form`, recommend the likely workflow and provisional call goal before asking for source access details. The same pattern applies when the user replies only `tiktok-ads`: recommend a likely lead follow-up workflow, inspect available TikTok Ads MCP tools or resources, verify or request authentication, then ask for the exact MCP tool, resource, account, campaign, or managed connector route only if no usable route can be discovered or a concrete scope is still required. If a safe auth action is available, I will start it before asking for another confirmation; I will not ask the user to say `start auth`, choose a discovered route, or refresh the session before attempting the available non-mutating auth path. If this host has no TikTok Ads MCP server configured, I will ask whether to add the default route before running `codex mcp add`; after approval I will inspect it with `codex mcp get tiktok-ads` and `codex mcp list`. If Codex reports `Auth: Unsupported`, I will treat that only as missing Codex-managed OAuth. When the route is configured but tools are not exposed, I will run `codex mcp login tiktok-ads` or the host's equivalent source MCP login before asking for a different route or session refresh. When TikTok Ads tools or resources are exposed, I will run a source-native read-only auth or inventory probe such as `auth_advertiser_get` before declaring a blocker; only if the available auth path and probe fail or no tools are exposed will I ask for a supported token, managed connector, host-specific login path, or another approved route. If the user replies only `notion`, recommend a likely workflow for approved records in a Notion database or data source, inspect available Notion API, MCP, integration-token, or managed connector routes, verify or request authentication, then ask for a database URL, database ID, data source ID, or managed connector resource locator only if no usable route can discover accessible sources. If a database locator is supplied, resolve it to a canonical data source before asking for field mapping. If the user replies only `airtable`, recommend a likely workflow for approved records in an Airtable table or view, inspect available Airtable Web API, OAuth, personal-access-token, MCP, or managed connector routes, verify or request authentication, then ask for a base ID, table ID or name, optional view, or managed connector locator only if no usable route can discover accessible sources.
 
 ## TikTok Ads Lead Follow-Up Skill
 
@@ -128,6 +128,38 @@ Generated future use:
 
 ```text
 Use notion-crm-callbacks to process approved callback requests from the Sales CRM database for 2026-06-20.
+```
+
+## Airtable Follow-Up Workflow Skill
+
+User request:
+
+```text
+Create an outbound skill named airtable-follow-up-calls. It should read approved follow-up records from an Airtable table view, call contacts who consented to phone follow-up, and write call status back to Airtable when record-field writeback is verified.
+```
+
+Captured contract:
+
+- output scope: user-level reusable skill unless the user explicitly asks for project-local output
+- binding level: `parameterized-bound` by default, with runtime Airtable base, table, or view locators allowed only after runtime locator resolution and schema verification
+- source onboarding: Airtable authentication or connector access checked, base and table locator resolved, schema retrieved when available, representative record sample fetched from the configured table or view, and default goal fields confirmed from the sample
+- provider onboarding: selected host runtime has the CALL-E MCP route configured and authenticated, compatible plan/run/status tools found, and no provider blocker
+- source family: `airtable`
+- access method: Airtable Web API, OAuth, personal access token, MCP, or managed connector
+- source locator: Airtable base ID, table ID or name, optional view ID or name, and optional filter formula
+- canonical source: base ID plus table ID; view ID is captured when the view defines the approved candidate subset
+- phone field: `phone_e164`
+- recipient label field: primary field or `contact_name`
+- dedupe key: Airtable record ID unless a stable CRM record ID field is configured
+- date filtering: `follow_up_date` date field, or record created time when no business date field is configured
+- outreach basis: `phone_follow_up_consent` is true, an approved view or formula filter includes only callable records, or a source-level policy confirms that the table contains only approved follow-up requests
+- result output: non-destructive `PATCH` updates to existing Airtable record fields for call status, result summary, provider run ID, and processed timestamp when verified; otherwise use an approved source-adjacent result artifact in the same Airtable base or workspace when available; otherwise write a new local result CSV; use session-table output only as a last-resort non-persistent fallback when durable output cannot be verified
+- execution: `dry-run-then-batch-approval` by default; `approved-direct-execution` only after concrete runtime locator, schema, consent, dedupe, result-output, and provider checks pass; after approval or direct-mode validation, process all ready candidates serially and report one final batch summary
+
+Generated future use:
+
+```text
+Use airtable-follow-up-calls to process approved records from the Customer Follow-up view for 2026-06-20.
 ```
 
 ## Local CSV Appointment Confirmation Skill

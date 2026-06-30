@@ -38,7 +38,7 @@ Choose whether the workflow stays at the minimum binding level or upgrades to a 
 | Binding level | What must be fixed at creation time | What may be supplied at runtime |
 | --- | --- | --- |
 | `fully-bound` | Concrete source instance, field names, source-level outreach basis or consent rule, dedupe key, fixed result target, and result fields. The result target can be source writeback, a source-adjacent result artifact, or a local result CSV. | Date window, subset filters, and other narrow processing controls. |
-| `parameterized-bound` | Source family, access method, required schema, source-level outreach basis or consent rule, dedupe key, result-output policy, and result field schema. | Approved instance parameters such as form ID, Notion database or data source ID, CSV path, campaign ID, date window, source writeback target, source-adjacent artifact target, or output path. |
+| `parameterized-bound` | Source family, access method, required schema, source-level outreach basis or consent rule, dedupe key, result-output policy, and result field schema. | Approved instance parameters such as form ID, Notion database or data source ID, Airtable base/table/view locator, CSV path, campaign ID, date window, source writeback target, source-adjacent artifact target, or output path. |
 
 Default to the minimum `parameterized-bound` contract. Use `fully-bound` for stable production or scheduled workflows that should fix a concrete source and durable result-output target. If the workflow cannot support the minimum contract, continue onboarding or stop before generating the skill.
 
@@ -62,7 +62,7 @@ Treat source writeback narrowly: it updates the bound source instance or canonic
 
 ## Authenticated Source Onboarding
 
-Use this order for every authenticated or connector-backed source family, including Google Forms, TikTok Ads, Notion, and future sources that require OAuth, MCP auth, API keys, managed connector auth, or workspace permissions.
+Use this order for every authenticated or connector-backed source family, including Google Forms, TikTok Ads, Notion, Airtable, and future sources that require OAuth, MCP auth, API keys, managed connector auth, or workspace permissions.
 
 For any authenticated or connector-backed source family, do not ask the user to manually provide the full field mapping before source access has been checked and a representative sample has been fetched.
 
@@ -81,7 +81,7 @@ When a safe source authorization or auth-readiness action is available, start it
 7. Show a redacted sample summary and proposed field mapping for user confirmation.
 8. Ask the user to fill only fields that cannot be inferred from the sample.
 
-When the user names only an authenticated source family such as `google-form`, `tiktok-ads`, or `notion`, treat that as enough to recommend a likely workflow and provisional call goal, then enter source access onboarding. First inspect available host routes and run any safe auth-readiness or discovery check. The next prompt should ask only for the minimum locator or user-completed authorization step that remains necessary to fetch a representative sample. Do not ask for detailed field mapping, final goal-field selection, or result-output mapping before the access check and sample fetch have been attempted.
+When the user names only an authenticated source family such as `google-form`, `tiktok-ads`, `notion`, or `airtable`, treat that as enough to recommend a likely workflow and provisional call goal, then enter source access onboarding. First inspect available host routes and run any safe auth-readiness or discovery check. The next prompt should ask only for the minimum locator or user-completed authorization step that remains necessary to fetch a representative sample. Do not ask for detailed field mapping, final goal-field selection, or result-output mapping before the access check and sample fetch have been attempted.
 
 Do not present a blank manual mapping form for phone, recipient, consent, dedupe, goal inputs, or result-output fields before authentication and sample fetch have been attempted. If access or sample fetch is blocked before the minimum source contract can be confirmed, record the blocker and stop before generating the skill.
 
@@ -219,6 +219,61 @@ During creation-time onboarding, retrieve the canonical data source schema and q
 Treat Notion source writeback narrowly: updating call results on the source record means updating page properties on the sampled or runtime-matched pages. Do not describe updating a Notion data source schema as source writeback. If result fields do not already exist and creation of new properties is required, treat that as a schema-changing side effect that must be explicitly configured and approved before runtime. If the host cannot verify safe page-property writeback, configure a source-adjacent result artifact in the same Notion workspace or a new local result CSV. Use session-table output only as a last-resort non-persistent fallback when durable output cannot be verified.
 
 For `fully-bound`, capture the concrete database or data source locator, canonical data source ID, field mapping, candidate filter, and fixed page-property writeback target, source-adjacent result artifact, or local result CSV target. For `parameterized-bound`, capture the required data source schema and result field schema, then allow runtime database or data source identifiers only when the runtime gate resolves them to a data source and confirms the schema and result-output contract.
+
+## Airtable
+
+Use `airtable` when records come from an Airtable base table or view exposed through an approved Airtable Web API, OAuth, personal access token, MCP, or managed connector route.
+
+Default access route:
+
+```text
+source family: `airtable`
+access method: Airtable Web API, OAuth, personal access token, MCP, or managed connector
+source locator: Airtable base ID, table ID or name, optional view ID or name, and optional filter formula
+```
+
+Prefer stable IDs when available. Airtable table names and table IDs can both address records, but generated skills should record table IDs and field IDs when schema access is available so later table or field renames do not break runtime requests.
+
+Capture:
+
+- Airtable route type, such as Web API, OAuth, personal access token, MCP, or managed connector
+- access method and route used for onboarding
+- authentication, token, connector, base permission, or MCP resource access check result
+- token scopes and resource access used for onboarding, including `data.records:read` for record reads, `schema.bases:read` for schema metadata when available, and `data.records:write` only when source writeback is configured
+- base ID and base name when discoverable
+- table ID or table name, and table ID resolution result when a table name is supplied
+- optional view ID or view name used as the candidate subset
+- optional `filterByFormula`, sort, field selection, `returnFieldsByFieldId`, and date-window filtering semantics
+- sampled table ID or representative runtime table ID
+- schema fetch result from the base metadata API when available, including field names, field IDs, field types, primary field, and views
+- sample fetch result and redacted sample summary from `list records`
+- record ID and created time
+- E.164 phone-number field
+- recipient label field, normally the primary field or a configured name field
+- dedupe key, normally Airtable record ID unless a stable business identifier field is configured
+- goal input fields
+- source-level outreach basis or consent evidence, such as an approved base or table purpose, view filter, formula filter, status field, or per-record consent field
+- source writeback fields, source-adjacent result artifact target, or local result CSV output policy for status, result summary, call run ID, and processed timestamp
+
+Generated Airtable skills must not assume every record in a base, table, or view is callable. They must validate outreach basis or consent, E.164 phone numbers, and the configured table, view, formula, or status filter before creating call candidates.
+
+Do not ask for Airtable field mapping before Airtable access has been verified, the base/table/view locator has been resolved, schema has been fetched when the route supports it, and a representative record sample has been fetched.
+
+For Airtable locators, resolve and sample in this order:
+
+1. Verify the route can authenticate with Airtable through OAuth, personal access token, MCP, or a managed connector.
+2. If the route can list bases, use it to verify the base ID, base name, and permission level before asking for a base ID.
+3. Retrieve base schema when `schema.bases:read` or an equivalent connector capability is available.
+4. Resolve table names to table IDs from schema metadata when possible; prefer table IDs in the generated skill contract.
+5. Resolve the configured view ID or name when a view is used as the candidate subset.
+6. List a small record sample from the table or view through a read-only path. Use a small `pageSize` or `maxRecords`; handle pagination by recording that `offset` is required for later full runs.
+7. If schema access is unavailable, infer only from the sampled records and record that missing schema metadata is a source onboarding blocker unless the sample and user confirmation are enough to satisfy the minimum `parameterized-bound` contract.
+
+During creation-time onboarding, fetch a small sample through the exact Airtable API, MCP tool, resource, or connector action exposed by the host. Record the tool or route names, base ID, table ID or name, view ID or name, returned fields, field-key mode, pagination rule, and redaction rule in the generated skill.
+
+Treat Airtable source writeback narrowly: updating call results on the source record means non-destructive `PATCH` updates to configured record fields. Do not use destructive `PUT` updates for result output. Do not enable `typecast` unless the generated skill explicitly documents why conversion is safe for the configured result fields. If result fields do not already exist and creating new fields is required, treat that as a schema-changing side effect that needs explicit configuration and approval before runtime. If the host cannot verify safe record-field writeback, configure a source-adjacent result artifact in the same Airtable base or workspace when available, or a new local result CSV. Use session-table output only as a last-resort non-persistent fallback when durable output cannot be verified.
+
+For `fully-bound`, capture the concrete base ID, table ID, optional view ID, field mapping, candidate filter, and fixed record-field writeback target, source-adjacent result artifact, or local result CSV target. For `parameterized-bound`, capture the required table schema and result field schema, then allow runtime Airtable base, table, or view locators only when the runtime gate resolves them and confirms the schema, candidate filter, dedupe, and result-output contract.
 
 ## Local CSV
 

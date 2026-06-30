@@ -62,7 +62,7 @@ The generated `SKILL.md` must include:
 The generated skill must declare one of these binding levels:
 
 - `fully-bound`: a concrete source instance and concrete durable result target are fixed at creation time. The result target can be source writeback to the bound source instance or canonical source record store, a source-adjacent result artifact, or a local result CSV. Runtime requests may provide only date windows, subset filters, and other narrow processing controls.
-- `parameterized-bound`: the source family, access method, required field schema, source-level outreach basis or consent rule, dedupe rule, goal contract, result-output policy, and result field schema are fixed at creation time. Runtime requests may provide approved parameters such as form ID, Notion database or data source ID, CSV path, campaign ID, date window, source writeback target, source-adjacent artifact target, or output path.
+- `parameterized-bound`: the source family, access method, required field schema, source-level outreach basis or consent rule, dedupe rule, goal contract, result-output policy, and result field schema are fixed at creation time. Runtime requests may provide approved parameters such as form ID, Notion database or data source ID, Airtable base/table/view locator, CSV path, campaign ID, date window, source writeback target, source-adjacent artifact target, or output path.
 
 Default generated skills should use the minimum `parameterized-bound` contract. If the creator cannot capture enough source, outreach-basis, dedupe, and durable result-output detail to satisfy that minimum, it must stop before generating the business skill.
 

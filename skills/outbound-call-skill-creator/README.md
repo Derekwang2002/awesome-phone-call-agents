@@ -69,15 +69,29 @@ or another approved TikTok Ads access route if it is available in the host. The
 skill itself does not require TikTok Ads access unless the generated workflow is
 for TikTok Ads records.
 
-For Notion workflows, the creator may use an approved Notion MCP server, Notion
-API connection, integration token, or managed connector route if it is available
-in the host. The skill itself does not require Notion access unless the generated
-workflow is for Notion records.
+Host setup is adapter-specific. The creator should first identify the actual
+MCP-capable host or agent runtime selected by the user, then use that host's
+documented MCP server, connector, plugin, and OAuth flow. Codex commands in
+this repository are adapter examples only, not universal setup instructions.
 
-For Airtable workflows, the creator may use an approved Airtable MCP server,
-Airtable Web API OAuth or personal access token route, or managed connector
-route if it is available in the host. The skill itself does not require Airtable
-access unless the generated workflow is for Airtable records.
+For Notion workflows, the creator should recommend hosted Notion MCP at
+`https://mcp.notion.com/mcp` first because it uses OAuth and avoids
+user-managed integration tokens. It may fall back to another approved Notion MCP
+server, Notion API connection, integration token, or managed connector route
+when hosted Notion MCP is unavailable or insufficient. The skill itself does not
+require Notion access unless the generated workflow is for Notion records.
+
+For Airtable workflows, the creator should recommend hosted Airtable MCP at
+`https://mcp.airtable.com/mcp` first because it uses OAuth and avoids
+user-managed personal access tokens. When the selected host is Codex, configure
+it with `codex plugin add airtable@openai-curated` when plugin installation is
+allowed, or directly with
+`codex mcp add airtable --url https://mcp.airtable.com/mcp`, then run
+`codex mcp login airtable` and refresh the session before sampling. It may fall
+back to another approved Airtable MCP server, Airtable Web API OAuth or personal
+access token route, or managed connector route when hosted Airtable MCP is
+unavailable or insufficient. The skill itself does not require Airtable access
+unless the generated workflow is for Airtable records.
 
 For real outbound calls, generated skills use the default CALL-E MCP provider
 route unless the generated skill explicitly documents another approved one-off

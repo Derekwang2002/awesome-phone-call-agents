@@ -68,6 +68,8 @@ For any authenticated or connector-backed source family, do not ask the user to 
 
 Proactively inspect available host routes before asking the user for access details. A host route can be a local helper script, installed source adapter, configured connector, exposed MCP tool, exposed MCP resource, API adapter, or managed connector. Only ask the user for a Form ID, account scope, Apps Script endpoint, MCP tool name, or managed connector route when no usable route can be discovered or authorization requires user completion.
 
+Use the actual MCP-capable host or agent runtime selected by the user; do not assume Codex. Host-specific commands are adapter examples, not universal instructions. For Claude, Antigravity, Cursor, or another MCP-capable host, use that host's documented MCP server or connector setup and OAuth flow. Record the host name, setup method, route URL, authorization state, active-session tool visibility, and any refresh or restart step required by that host.
+
 Collect only the minimum connection details needed to authorize or locate the source. After route discovery, ask only for details still needed to complete authorization or locate the representative source instance.
 
 When a safe source authorization or auth-readiness action is available, start it before asking the user for another confirmation. Safe actions include local OAuth status or repair helpers, host MCP login commands, managed connector authorization prompts, and source-native read-only inventory probes. Do not ask the user to say `start auth`, choose a discovered route, or refresh a session before attempting the available non-mutating auth path. Pause only when the auth flow requires browser completion, the auth command fails or reports unsupported auth, a concrete locator or account scope is still required after inventory, or the only remaining path requires the user to provide credentials, tokens, or connector configuration.
@@ -159,7 +161,7 @@ codex mcp get tiktok-ads
 codex mcp list
 ```
 
-After adding an approved route or discovering an existing server, inspect its configured auth state and the MCP tools or resources exposed to the current agent session. Treat Codex `Auth: Unsupported` as absence of Codex-managed OAuth, not as proof that source access is unavailable. If `Auth` is `OAuth` or another login-capable mode, run or request the host login flow and then re-check with `codex mcp list` or `codex mcp get tiktok-ads`. In Codex, when the route is configured but TikTok Ads tools are not yet exposed, run `codex mcp login tiktok-ads` or the host's equivalent source MCP login before asking the user for a different route or session refresh. If TikTok Ads MCP tools or resources are exposed, run the source-native read-only auth or inventory probe before declaring a blocker. Prefer `auth_advertiser_get` or an equivalent account-inventory tool first; if it returns accessible advertisers, use the returned advertiser scope or ask only for the minimum account, campaign, form, page, or lead scope still needed to fetch a representative sample. If no TikTok Ads tools or resources are exposed after the available host auth path has been attempted, or the source-native probe fails because authorization is missing, record a source onboarding blocker and ask only for the missing authentication route such as a supported bearer-token environment variable, managed connector, host-specific login path, or another approved TikTok Ads connector.
+After adding an approved route or discovering an existing server, inspect its configured auth state and the MCP tools or resources exposed to the current agent session. Treat Codex `Auth: Unsupported` as absence of Codex-managed OAuth, not as proof that source access is unavailable. If `Auth` is `OAuth` or another login-capable mode, run or request the selected host's login flow and then re-check with that host's status command or connector state. In Codex, this usually means `codex mcp list`, `codex mcp get tiktok-ads`, and, when tools are not yet exposed, `codex mcp login tiktok-ads`; in other MCP hosts, use the host's equivalent source MCP login, connector refresh, or session restart before asking the user for a different route. If TikTok Ads MCP tools or resources are exposed, run the source-native read-only auth or inventory probe before declaring a blocker. Prefer `auth_advertiser_get` or an equivalent account-inventory tool first; if it returns accessible advertisers, use the returned advertiser scope or ask only for the minimum account, campaign, form, page, or lead scope still needed to fetch a representative sample. If no TikTok Ads tools or resources are exposed after the available host auth path has been attempted, or the source-native probe fails because authorization is missing, record a source onboarding blocker and ask only for the missing authentication route such as a supported bearer-token environment variable, managed connector, host-specific login path, or another approved TikTok Ads connector.
 
 During creation-time onboarding, fetch a small sample through the exact MCP tool or resource names exposed by the host. Record the tool names, sampled scope, returned fields, and redaction rule in the generated skill.
 
@@ -169,15 +171,29 @@ For `fully-bound`, capture the concrete account, advertiser, campaign, or lead s
 
 ## Notion
 
-Use `notion` when records come from a Notion database, data source, or database-like table exposed through an approved Notion API, MCP, integration token, or managed connector route.
+Use `notion` when records come from a Notion database, data source, or database-like table exposed through hosted Notion MCP, another approved Notion MCP route, the Notion API, an integration token, or a managed connector route.
+
+Recommended Notion access route: hosted Notion MCP. It uses OAuth through the user's Notion workspace and avoids asking new users to create or paste integration tokens.
 
 Default access route:
 
 ```text
 source family: `notion`
-access method: Notion API, MCP, integration token, or managed connector
+access method: hosted Notion MCP at https://mcp.notion.com/mcp, another approved Notion MCP route, Notion API, integration token, or managed connector
 source locator: Notion database URL or ID, Notion data source ID, or managed connector resource locator
 ```
+
+Use the selected MCP host's server or connector setup for hosted Notion MCP before asking for a Notion integration token. Complete that host's OAuth flow, then refresh or restart tools as required by the host so active-session Notion tools are visible.
+
+Codex adapter example for hosted Notion MCP:
+
+```bash
+codex mcp add notion --url https://mcp.notion.com/mcp
+codex mcp login notion
+codex mcp list
+```
+
+For Codex, skip `add` when a `notion` MCP server already points to `https://mcp.notion.com/mcp`. Run `login` when OAuth is not ready. Do not ask the user to create a Notion integration token before checking or offering hosted Notion MCP. Use integration tokens only when hosted Notion MCP is unavailable, unsupported by the selected host, or insufficient for the workspace permission model.
 
 Treat a Notion data source as the canonical record source. A Notion database can contain one or more data sources, so database IDs and database URLs are accepted locators but must be resolved to a concrete data source before schema sampling, candidate validation, or real-call execution.
 
@@ -214,29 +230,50 @@ For Notion database locators, resolve the locator before sampling:
 4. If the database contains multiple data sources, ask the user to choose the data source by name or ID before sampling.
 5. If the database contains no accessible data sources, record a source onboarding blocker and stop before generating a real-call skill.
 
-During creation-time onboarding, retrieve the canonical data source schema and query a small sample of pages through the exact Notion API, MCP tool, resource, or connector action exposed by the host. Record the tool or route names, locator resolution, sampled data source ID, returned property names and types, and redaction rule in the generated skill.
+During creation-time onboarding, retrieve the canonical data source schema and query a small sample of pages through the exact Notion MCP tool, API endpoint, resource, or connector action exposed by the host. Record the tool or route names, locator resolution, sampled data source ID, returned property names and types, and redaction rule in the generated skill.
+
+Public or shared Notion page routes may be used only for read-only discovery and sampling when they are the approved source access path. Do not treat public page metadata, anonymous browser state, `read_and_write` flags returned by shared-page data, or internal `saveTransactions` calls as authenticated production writeback. A generated Notion skill that uses only a public shared-page route must keep Notion source writeback blocked and configure a source-adjacent result artifact or local result CSV as the durable output target.
 
 Treat Notion source writeback narrowly: updating call results on the source record means updating page properties on the sampled or runtime-matched pages. Do not describe updating a Notion data source schema as source writeback. If result fields do not already exist and creation of new properties is required, treat that as a schema-changing side effect that must be explicitly configured and approved before runtime. If the host cannot verify safe page-property writeback, configure a source-adjacent result artifact in the same Notion workspace or a new local result CSV. Use session-table output only as a last-resort non-persistent fallback when durable output cannot be verified.
+
+Do not mark Notion source writeback ready until hosted Notion MCP or another authenticated Notion route exposes page update capability for the target pages. The writeback action must update the existing page property, such as a `properties.result.rich_text` payload for the target page ID, and must keep full phone numbers, provider secrets, callback URLs, cookies, and confirmation tokens out of result text. Before real runs rely on Notion writeback, run an explicitly approved writeback preflight against a disposable or approved test row: write a harmless canary value, read it back, confirm an exact match, then restore or overwrite the test value.
 
 For `fully-bound`, capture the concrete database or data source locator, canonical data source ID, field mapping, candidate filter, and fixed page-property writeback target, source-adjacent result artifact, or local result CSV target. For `parameterized-bound`, capture the required data source schema and result field schema, then allow runtime database or data source identifiers only when the runtime gate resolves them to a data source and confirms the schema and result-output contract.
 
 ## Airtable
 
-Use `airtable` when records come from an Airtable base table or view exposed through an approved Airtable Web API, OAuth, personal access token, MCP, or managed connector route.
+Use `airtable` when records come from an Airtable base table or view exposed through hosted Airtable MCP, another approved Airtable MCP route, Airtable Web API, OAuth, personal access token, or a managed connector route.
+
+Recommended Airtable access route: hosted Airtable MCP. It uses OAuth through the user's Airtable account and avoids asking new users to create or paste personal access tokens.
+
+Official Airtable setup reference: <https://support.airtable.com/v1/docs/using-the-airtable-mcp-server>.
 
 Default access route:
 
 ```text
 source family: `airtable`
-access method: Airtable Web API, OAuth, personal access token, MCP, or managed connector
+access method: hosted Airtable MCP at https://mcp.airtable.com/mcp, another approved Airtable MCP route, Airtable Web API OAuth, personal access token, or managed connector
 source locator: Airtable base ID, table ID or name, optional view ID or name, and optional filter formula
 ```
+
+Use the selected MCP host's server, connector, or plugin setup for hosted Airtable MCP before asking for an Airtable personal access token. Complete that host's OAuth flow, then refresh or restart tools as required by the host so active-session Airtable tools are visible.
+
+Codex adapter example for hosted Airtable MCP:
+
+```bash
+codex plugin add airtable@openai-curated
+codex mcp add airtable --url https://mcp.airtable.com/mcp
+codex mcp login airtable
+codex mcp list
+```
+
+The official Airtable Codex plugin is the simplest Codex path when plugin installation is allowed; it bundles Airtable-specific guidance and points the host at Airtable's hosted MCP. The direct `codex mcp add` command remains the explicit Codex route setup path when a plugin is not desired or the creator needs auditable route evidence. For Codex, skip `plugin add` when the plugin is already installed and enabled. Skip `mcp add` when an `airtable` MCP server already points to `https://mcp.airtable.com/mcp`. Run `login` when OAuth is not ready. Do not ask the user to create an Airtable personal access token before checking or offering hosted Airtable MCP. Use personal access tokens only when hosted Airtable MCP is unavailable, unsupported by the selected host, or insufficient for the base permission model.
 
 Prefer stable IDs when available. Airtable table names and table IDs can both address records, but generated skills should record table IDs and field IDs when schema access is available so later table or field renames do not break runtime requests.
 
 Capture:
 
-- Airtable route type, such as Web API, OAuth, personal access token, MCP, or managed connector
+- Airtable route type, such as hosted MCP, another MCP route, Web API OAuth, personal access token, or managed connector
 - access method and route used for onboarding
 - authentication, token, connector, base permission, or MCP resource access check result
 - token scopes and resource access used for onboarding, including `data.records:read` for record reads, `schema.bases:read` for schema metadata when available, and `data.records:write` only when source writeback is configured
@@ -261,7 +298,7 @@ Do not ask for Airtable field mapping before Airtable access has been verified, 
 
 For Airtable locators, resolve and sample in this order:
 
-1. Verify the route can authenticate with Airtable through OAuth, personal access token, MCP, or a managed connector.
+1. Verify the route can authenticate with Airtable through hosted Airtable MCP, another OAuth route, personal access token fallback, or a managed connector.
 2. If the route can list bases, use it to verify the base ID, base name, and permission level before asking for a base ID.
 3. Retrieve base schema when `schema.bases:read` or an equivalent connector capability is available.
 4. Resolve table names to table IDs from schema metadata when possible; prefer table IDs in the generated skill contract.
@@ -271,7 +308,9 @@ For Airtable locators, resolve and sample in this order:
 
 During creation-time onboarding, fetch a small sample through the exact Airtable API, MCP tool, resource, or connector action exposed by the host. Record the tool or route names, base ID, table ID or name, view ID or name, returned fields, field-key mode, pagination rule, and redaction rule in the generated skill.
 
-Treat Airtable source writeback narrowly: updating call results on the source record means non-destructive `PATCH` updates to configured record fields. Do not use destructive `PUT` updates for result output. Do not enable `typecast` unless the generated skill explicitly documents why conversion is safe for the configured result fields. If result fields do not already exist and creating new fields is required, treat that as a schema-changing side effect that needs explicit configuration and approval before runtime. If the host cannot verify safe record-field writeback, configure a source-adjacent result artifact in the same Airtable base or workspace when available, or a new local result CSV. Use session-table output only as a last-resort non-persistent fallback when durable output cannot be verified.
+Treat Airtable source writeback narrowly: updating call results on the source record means non-destructive updates to configured fields on existing records, such as an Airtable API `PATCH` or an equivalent hosted MCP record-update action. Do not use destructive `PUT` updates for result output. Do not enable `typecast` unless the generated skill explicitly documents why conversion is safe for the configured result fields. If result fields do not already exist and creating new fields is required, treat that as a schema-changing side effect that needs explicit configuration and approval before runtime. If the host cannot verify safe record-field writeback, configure a source-adjacent result artifact in the same Airtable base or workspace when available, or a new local result CSV. Use session-table output only as a last-resort non-persistent fallback when durable output cannot be verified.
+
+Do not mark Airtable source writeback ready until hosted Airtable MCP or another authenticated Airtable route exposes non-destructive record update capability for the target table. The writeback action must update only the configured result fields on existing record IDs, and must keep full phone numbers, provider secrets, callback URLs, cookies, and confirmation tokens out of result text. Before real runs rely on Airtable writeback, run an explicitly approved writeback preflight against a disposable or approved test record: write a harmless canary value, read it back, confirm an exact match, then restore or overwrite the test value.
 
 For `fully-bound`, capture the concrete base ID, table ID, optional view ID, field mapping, candidate filter, and fixed record-field writeback target, source-adjacent result artifact, or local result CSV target. For `parameterized-bound`, capture the required table schema and result field schema, then allow runtime Airtable base, table, or view locators only when the runtime gate resolves them and confirms the schema, candidate filter, dedupe, and result-output contract.
 

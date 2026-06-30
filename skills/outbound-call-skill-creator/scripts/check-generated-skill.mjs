@@ -18,6 +18,12 @@ const BINDING_LEVEL_RE =
   /^\s*(?:[-*]\s*)?(?:selected\s+)?binding level\s*(?:is|:)\s*`?(fully-bound|parameterized-bound)`?/imu;
 const EXECUTION_MODE_RE =
   /^\s*(?:[-*]\s*)?(?:selected\s+)?execution mode\s*(?:is|:)\s*`?(dry-run-then-batch-approval|approved-direct-execution)`?/imu;
+const NOTION_SOURCE_FAMILY_RE =
+  /^\s*(?:[-*]\s*)?source[_\s-]+family\s*:\s*`?notion`?/imu;
+const PUBLIC_NOTION_READ_ROUTE_RE =
+  /\b(?:public|anonymous|shared[-\s]?page|loadPageChunk|collection_view_page|saveTransactions)\b/iu;
+const SOURCE_WRITEBACK_RESULT_MODE_RE =
+  /^\s*(?:[-*]\s*)?(?:result output policy|result[-\s]?output policy|result target mode|output target mode|target mode)\s*:\s*`?source-writeback`?\b/imu;
 const AFFIRMATIVE_DRY_RUN_ONLY_DECLARATION_RE =
   /\b(?:(?:(?:this|the)\s+)?(?:generated\s+)?(?:workflow|skill)\s+(?:is|remains|must\s+remain)|keeps?\s+(?:the\s+)?(?:generated\s+)?(?:workflow|skill))\s+dry[-\s]?run[-\s]?only\b/iu;
 const NEGATED_DRY_RUN_ONLY_RE = /\bnot[\s_-]+dry[-\s_]?run[-\s_]?only\b/iu;
@@ -609,6 +615,11 @@ const providerOnboardingEvidenceAndContractText = [
   .filter((text) => text.trim())
   .join("\n");
 const executionModesText = extractSection(skillText, "Execution Modes");
+const resultOutputText = extractSections(skillText, [
+  "Result-Output Behavior",
+  "Result Output Behavior",
+  "Result Output Contract",
+]);
 const safetySummaryText = extractSection(skillText, "Safety Summary");
 const selectedBindingLevel = extractRequiredValue(
   bindingLevelText,
@@ -632,6 +643,16 @@ const allowsBlockedOnboarding =
   !dryRunOnlyDeclarationState.hasNegatedDeclaration;
 
 if (["fully-bound", "parameterized-bound"].includes(selectedBindingLevel)) {
+  if (
+    NOTION_SOURCE_FAMILY_RE.test(skillText) &&
+    PUBLIC_NOTION_READ_ROUTE_RE.test(sourceOnboardingText) &&
+    SOURCE_WRITEBACK_RESULT_MODE_RE.test(resultOutputText)
+  ) {
+    fail(
+      "Generated Notion skills cannot mark source writeback ready from public shared-page access; use hosted Notion MCP, another authenticated Notion writeback route, or a local result CSV fallback",
+    );
+  }
+
   const sourceOnboardingStatuses = BOUND_SOURCE_STATUS_MARKERS.map((marker) =>
     getOnboardingStatus(sourceOnboardingText, marker, allowsBlockedOnboarding),
   );

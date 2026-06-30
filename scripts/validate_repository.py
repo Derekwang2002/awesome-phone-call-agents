@@ -561,6 +561,9 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "recommend a likely workflow and provisional call goal, then enter source access onboarding",
             "Do not ask for detailed field mapping, final goal-field selection, or result-output mapping before the access check and sample fetch have been attempted.",
             "Proactively inspect available host routes before asking the user for access details.",
+            "Use the actual MCP-capable host or agent runtime selected by the user; do not assume Codex.",
+            "Host-specific commands are adapter examples, not universal instructions.",
+            "For Claude, Antigravity, Cursor, or another MCP-capable host, use that host's documented MCP server or connector setup and OAuth flow.",
             "`google-auth.mjs status`",
             "`google-local-api-client.mjs --action list-forms`",
             "`preflight-auth.mjs --repair-google`",
@@ -581,6 +584,21 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "default outbound goal contract",
             "Do not ask for Google Form field mapping before Google access has been verified and a representative response sample has been fetched.",
             "Do not ask for TikTok Ads field mapping before the exact MCP tool or resource access has been verified and a representative record sample has been fetched.",
+            "Recommended Notion access route: hosted Notion MCP",
+            "https://mcp.notion.com/mcp",
+            "Codex adapter example for hosted Notion MCP",
+            "codex mcp add notion --url https://mcp.notion.com/mcp",
+            "codex mcp login notion",
+            "Do not ask the user to create a Notion integration token before checking or offering hosted Notion MCP.",
+            "Do not mark Notion source writeback ready until hosted Notion MCP or another authenticated Notion route exposes page update capability",
+            "Recommended Airtable access route: hosted Airtable MCP",
+            "https://mcp.airtable.com/mcp",
+            "Codex adapter example for hosted Airtable MCP",
+            "codex plugin add airtable@openai-curated",
+            "codex mcp add airtable --url https://mcp.airtable.com/mcp",
+            "codex mcp login airtable",
+            "Do not ask the user to create an Airtable personal access token before checking or offering hosted Airtable MCP.",
+            "Do not mark Airtable source writeback ready until hosted Airtable MCP or another authenticated Airtable route exposes non-destructive record update capability",
             "For local CSV workflows, capture supported result-output target modes at creation time and choose the concrete target mode during the runtime dry-run or approval step.",
             "source-csv-in-place",
             "result-csv-file",
@@ -599,8 +617,12 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "Next I will check whether this host already exposes Google Forms access.",
             "If local OAuth is available, I will run its auth check and list accessible forms before asking you for a Form ID.",
             "## TikTok Ads Lead Follow-Up Skill",
-            "If this host has no TikTok Ads MCP server configured, I will ask whether to add the default route before running `codex mcp add`",
+            "If the selected host is Codex and this host has no TikTok Ads MCP server configured, I will ask whether to add the default route before running `codex mcp add`",
             "- source family: `tiktok-ads`",
+            "I will first identify the current or target MCP-capable host and use that host's documented connector or MCP setup.",
+            "For Notion, I will recommend hosted Notion MCP first because it uses OAuth and avoids user-managed integration tokens.",
+            "For Airtable, I will recommend hosted Airtable MCP first because it uses OAuth and avoids user-managed personal access tokens.",
+            "If the selected host is Codex",
             "source-adjacent result artifact",
         ],
     )
@@ -1203,6 +1225,59 @@ Provider onboarding blocker: none.""",
                 "Generated outbound skill checker must allow non-Codex MCP provider onboarding evidence: "
                 + (other_agent_success.stderr or other_agent_success.stdout).strip()
             )
+
+        notion_public_writeback_md = valid_skill_md.replace(
+            "The source contract defines the approved data source and row ownership boundary.",
+            "Source family: notion.\nThe source contract defines the approved data source and row ownership boundary.",
+        ).replace(
+            "Access route: local source credentials.",
+            "Access route: public Notion shared page data API.",
+        ).replace(
+            "Source access route discovery result: host-local route discovery completed before user route selection.",
+            "Source access route discovery result: public shared-page read discovery completed.",
+        ).replace(
+            "Authentication or access check result: passed with local source credentials.",
+            "Authentication or access check result: passed with anonymous public shared-page read access.",
+        ).replace(
+            "Sample fetch result: passed with a representative source instance.",
+            "Sample fetch result: passed with public Notion shared-page record data.",
+        ).replace(
+            "Result-output behavior records call status, timestamps, summaries, and masked phone numbers.\n"
+            "Prefer source writeback when verified. Use `source-adjacent-result-artifact`\n"
+            "when results should stay in the source system without mutating source records.\n"
+            "Otherwise use `result-csv-file` to write a new local result CSV. Use\n"
+            "session-table output only as a last-resort attended fallback when durable result\n"
+            "output is blocked.\n"
+            "Runtime result target mode: source-adjacent-result-artifact resolved before execution approval from fixed creation values or approved runtime parameters.",
+            "Result-output behavior records call status, timestamps, summaries, and masked phone numbers.\n"
+            "Result output policy: source-writeback.\n"
+            "Result target mode: source-writeback.\n"
+            "Target: Notion `result` page property discovered through the public shared-page route.\n"
+            "Durable result output fallback: result-csv-file is available only if source writeback fails later; "
+            "session-table output is a last-resort attended fallback.",
+        )
+        (skill_dir / "SKILL.md").write_text(notion_public_writeback_md, encoding="utf-8")
+        notion_public_writeback_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        notion_public_writeback_output = (
+            notion_public_writeback_failure.stdout
+            + notion_public_writeback_failure.stderr
+        )
+        if notion_public_writeback_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject Notion source writeback "
+                "when onboarding used public shared-page access only."
+            )
+        if (
+            "Generated Notion skills cannot mark source writeback ready from public shared-page access"
+            not in notion_public_writeback_output
+        ):
+            fail("Generated outbound skill checker Notion public-writeback message changed.")
 
         (skill_dir / "template.md").write_text("Do not use templates.\n", encoding="utf-8")
         template_failure = subprocess.run(

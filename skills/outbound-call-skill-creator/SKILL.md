@@ -64,6 +64,8 @@ Present these source families by default:
 
 If the user selects `other`, do not guess API schemas, credentials, identifiers, date filters, result-output behavior, or MCP tool names. Ask for the missing contract details one at a time.
 
+When adding a new built-in source family, use `references/source-family-extension.md` to keep the source-family list, onboarding reference, interaction prompts, examples, README, and optional checker rules synchronized.
+
 ## Creation-Time Source Onboarding
 
 Creation-time source onboarding happens after the workflow, source family, provisional call goal, binding level, execution mode, skill name, and result-output direction are known, and before final field mapping or generated-skill contract generation.

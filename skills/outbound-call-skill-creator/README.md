@@ -90,6 +90,13 @@ The creator captures these workflow choices during skill generation:
 | Result output | Durable target required | Prefer source writeback when verified; otherwise use source-adjacent artifacts or local result CSV. |
 | Session-table output | Last-resort fallback | Not suitable for unattended automation unless explicitly accepted by the user. |
 
+## Maintaining Source Families
+
+When adding a built-in source family, follow
+`references/source-family-extension.md`. It lists every file that must stay in
+sync, the required `references/data-sources.md` section shape, and when the
+generated-skill checker should or should not change.
+
 ## Common Errors And Handling
 
 | Issue | What To Check |

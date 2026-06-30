@@ -2,6 +2,8 @@
 
 Use this reference when selecting and documenting the generated business skill's source records.
 
+For maintainer steps to add a built-in source family, see `references/source-family-extension.md`.
+
 ## Required Source Contract
 
 Capture these values before generating a business skill. The source contract must satisfy at least the `parameterized-bound` minimum:

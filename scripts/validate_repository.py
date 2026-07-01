@@ -1026,6 +1026,37 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
                 ).strip()
             )
 
+        wrapped_provider_contract_policy_md = valid_skill_md.replace(
+            "Provider onboarding blocker: none.\n\n## Execution Modes",
+            (
+                "Provider onboarding blocker: none.\n\n"
+                "## Provider Onboarding Contract\n\n"
+                "Provider onboarding contract: app connector tools such as "
+                "`mcp__codex_apps__call_e_zhiwen_dev._plan_call`\n"
+                "do not prove route readiness; use configured host MCP route evidence only.\n\n"
+                "## Execution Modes"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            wrapped_provider_contract_policy_md,
+            encoding="utf-8",
+        )
+        wrapped_provider_contract_policy_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if wrapped_provider_contract_policy_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must allow wrapped provider contract policy prose: "
+                + (
+                    wrapped_provider_contract_policy_success.stderr
+                    or wrapped_provider_contract_policy_success.stdout
+                ).strip()
+            )
+
         provider_contract_bad_evidence_md = valid_skill_md.replace(
             "Provider onboarding blocker: none.\n\n## Execution Modes",
             (

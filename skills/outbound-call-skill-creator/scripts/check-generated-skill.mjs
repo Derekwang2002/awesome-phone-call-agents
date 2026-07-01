@@ -486,7 +486,7 @@ function hasDisallowedProviderEvidence(text, { scanFreeFormEvidence = false } = 
   const lines = text.split(/\r?\n/u);
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
-    if (scanFreeFormEvidence && hasDisallowedFreeFormProviderEvidence(line)) {
+    if (scanFreeFormEvidence && hasDisallowedFreeFormProviderEvidence(lines, lineIndex)) {
       return true;
     }
     const providerEvidenceMatch = PROVIDER_EVIDENCE_LINE_RE.exec(line);
@@ -520,11 +520,49 @@ function hasDisallowedProviderEvidence(text, { scanFreeFormEvidence = false } = 
   return false;
 }
 
-function hasDisallowedFreeFormProviderEvidence(line) {
+function hasDisallowedFreeFormProviderEvidence(lines, lineIndex) {
+  const line = lines[lineIndex];
+  if (!DISALLOWED_PROVIDER_EVIDENCE_RE.test(line)) {
+    return false;
+  }
+  const lineWithContinuation = getFreeFormProviderEvidenceContext(lines, lineIndex);
   return (
-    DISALLOWED_PROVIDER_EVIDENCE_RE.test(line) &&
-    !PROVIDER_POLICY_PROSE_RE.test(line)
+    DISALLOWED_PROVIDER_EVIDENCE_RE.test(lineWithContinuation) &&
+    !PROVIDER_POLICY_PROSE_RE.test(lineWithContinuation)
   );
+}
+
+function getFreeFormProviderEvidenceContext(lines, lineIndex) {
+  let context = lines[lineIndex];
+  for (
+    let continuationIndex = lineIndex + 1;
+    continuationIndex < lines.length;
+    continuationIndex += 1
+  ) {
+    const continuationLine = lines[continuationIndex];
+    if (!isFreeFormPolicyContinuationLine(continuationLine, context)) {
+      break;
+    }
+    context = `${context.trimEnd()} ${continuationLine.trim()}`;
+  }
+  return context;
+}
+
+function isFreeFormPolicyContinuationLine(line, previousText) {
+  if (!line.trim()) {
+    return false;
+  }
+  if (/^\s*#{1,6}\s/u.test(line)) {
+    return false;
+  }
+  if (
+    PROVIDER_EVIDENCE_LINE_RE.test(line) ||
+    FIELD_LABEL_LINE_RE.test(line) ||
+    MARKDOWN_LIST_ITEM_RE.test(line)
+  ) {
+    return false;
+  }
+  return !/[.!?]\s*$/u.test(previousText.trim());
 }
 
 function isProviderEvidenceContinuationLine(line, previousLineHasValue) {

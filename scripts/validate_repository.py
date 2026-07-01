@@ -932,6 +932,46 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
                 "Generated outbound skill checker approval-only blocker message changed."
             )
 
+        ordinary_approval_flow_dry_run_only_lines = [
+            "This workflow is dry-run-only until approval is complete.",
+            "This workflow is dry-run-only until the reviewed candidate list is verified.",
+            "This workflow is dry-run-only until the candidate preview is ready.",
+            "This workflow is dry-run-only until approval is available.",
+        ]
+        for ordinary_approval_flow_line in ordinary_approval_flow_dry_run_only_lines:
+            ordinary_approval_flow_blocker_md = blocked_onboarding_with_approval_only_md.replace(
+                "This workflow is dry-run-only until batch approval is granted.",
+                ordinary_approval_flow_line,
+            )
+            (skill_dir / "SKILL.md").write_text(
+                ordinary_approval_flow_blocker_md,
+                encoding="utf-8",
+            )
+            ordinary_approval_flow_blocker_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            ordinary_approval_flow_blocker_output = (
+                ordinary_approval_flow_blocker_failure.stdout
+                + ordinary_approval_flow_blocker_failure.stderr
+            )
+            if ordinary_approval_flow_blocker_failure.returncode == 0:
+                fail(
+                    "Generated outbound skill checker must reject blocked onboarding "
+                    f"when dry-run-only text only says: {ordinary_approval_flow_line}"
+                )
+            if (
+                "Bound generated skill SKILL.md must include passed authentication or access check result"
+                not in ordinary_approval_flow_blocker_output
+            ):
+                fail(
+                    "Generated outbound skill checker ordinary-approval blocker "
+                    "message changed."
+                )
+
         missing_one_off_capability_md = valid_skill_md.replace(
             "One-off call capability: passed with the configured MCP route.\n",
             "",

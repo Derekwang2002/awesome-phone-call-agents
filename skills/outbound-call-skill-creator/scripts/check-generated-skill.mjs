@@ -21,7 +21,7 @@ const EXECUTION_MODE_RE =
 const AFFIRMATIVE_DRY_RUN_ONLY_DECLARATION_RE = /\bdry[-\s]?run[-\s]?only\b/iu;
 const NEGATED_DRY_RUN_ONLY_RE = /\bnot[\s_-]+dry[-\s_]?run[-\s_]?only\b/iu;
 const BLOCKER_SPECIFIC_DRY_RUN_ONLY_CONTEXT_RE =
-  /\b(?:onboarding|blocker|blocked|source|provider|auth|authentication|credential|credentials|route|setup|configured|resolved|complete|completed|available|ready|verified|refreshed)\b/iu;
+  /\b(?:onboarding|blockers?|blocked|source|provider|auth|authentication|credentials?|route|setup)\b/iu;
 const PROVIDER_EVIDENCE_LINE_RE =
   /(?:(?:provider\s+)?host runtime|provider_host_runtime|mcp route setup check result|provider route setup check result|mcp_route_setup_check|provider route|provider_route|provider (?:authentication|auth readiness) check result|provider auth(?:entication)?|auth_readiness|compatible MCP provider tools|compatible provider tools|compatible_tools|one[- ]off call capability|one_off_call_capability)\s*:(.*)$/iu;
 const DISALLOWED_PROVIDER_EVIDENCE_RE = /inferred|mcp__codex_apps__|call_e_zhiwen|botlab/iu;

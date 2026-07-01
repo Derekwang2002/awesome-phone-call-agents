@@ -741,6 +741,7 @@ Provider host runtime: Codex.
 MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.
 Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.
 Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.
+One-off call capability: passed with the configured MCP route.
 Provider onboarding blocker: none.
 
 ## Execution Modes
@@ -830,8 +831,8 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
 
         temporal_execution_modes_md = valid_skill_md.replace(
             (
-                "Execution mode: dry-run-then-batch-approval. Supported alternative is\n"
-                "approved-direct-execution when the binding level and runtime gate allow it."
+                "Execution mode: dry-run-then-batch-approval. Supported alternative is approved-direct-execution\n"
+                "when the binding level and runtime gate allow it."
             ),
             (
                 "Execution mode: dry-run-then-batch-approval.\n"
@@ -856,6 +857,107 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
                     or temporal_execution_modes_success.stdout
                 ).strip()
             )
+
+        approval_only_execution_modes_md = valid_skill_md.replace(
+            (
+                "Execution mode: dry-run-then-batch-approval. Supported alternative is approved-direct-execution\n"
+                "when the binding level and runtime gate allow it."
+            ),
+            (
+                "Execution mode: dry-run-then-batch-approval.\n"
+                "This workflow is dry-run-only until batch approval is granted.\n"
+                "Supported alternative is approved-direct-execution when the binding level and runtime gate allow it."
+            ),
+        )
+        blocked_onboarding_with_approval_only_md = approval_only_execution_modes_md.replace(
+            "Source onboarding completed for this parameterized-bound workflow.",
+            "Source onboarding recorded an onboarding blocker.",
+        ).replace(
+            "Authentication or access check result: passed with local source credentials.",
+            "Authentication or access check result: not passed because source auth is blocked.",
+        ).replace(
+            "Sample fetch result: passed with a representative source instance.",
+            "Sample fetch result: missing because source auth is blocked.",
+        ).replace(
+            "Sampled source instance: representative-callback-source.\n",
+            "",
+        ).replace(
+            "Discovered field mapping: candidate_id, phone_e164, name, submitted_at, consent, and callback_reason.\n",
+            "",
+        ).replace(
+            "User-confirmed field mapping: confirmed after the representative sample was shown.\n",
+            "",
+        ).replace(
+            "Default goal contract derived from sampled fields: call the respondent about callback_reason and summarize the result.\n",
+            "Onboarding blocker: source auth is blocked until credentials are refreshed.\n",
+        ).replace(
+            "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.",
+            "MCP route setup check result: not ready because provider route setup is blocked.",
+        ).replace(
+            "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
+            "Provider authentication check result: missing because provider auth is blocked.",
+        ).replace(
+            "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.\n"
+            "One-off call capability: passed with the configured MCP route.\n",
+            "",
+        ).replace(
+            "Provider onboarding blocker: none.",
+            "Provider onboarding blocker: provider auth is blocked until OAuth is completed.",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            blocked_onboarding_with_approval_only_md,
+            encoding="utf-8",
+        )
+        blocked_onboarding_with_approval_only_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        blocked_onboarding_with_approval_only_output = (
+            blocked_onboarding_with_approval_only_failure.stdout
+            + blocked_onboarding_with_approval_only_failure.stderr
+        )
+        if blocked_onboarding_with_approval_only_failure.returncode == 0:
+            fail(
+                "Generated outbound skill checker must reject blocked onboarding "
+                "when dry-run-only text only describes batch approval."
+            )
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in blocked_onboarding_with_approval_only_output
+        ):
+            fail(
+                "Generated outbound skill checker approval-only blocker message changed."
+            )
+
+        missing_one_off_capability_md = valid_skill_md.replace(
+            "One-off call capability: passed with the configured MCP route.\n",
+            "",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            missing_one_off_capability_md,
+            encoding="utf-8",
+        )
+        missing_one_off_capability_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        missing_one_off_capability_output = (
+            missing_one_off_capability_failure.stdout
+            + missing_one_off_capability_failure.stderr
+        )
+        if missing_one_off_capability_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject missing one-off call capability.")
+        if (
+            "Bound generated skill SKILL.md must include one-off call capability"
+            not in missing_one_off_capability_output
+        ):
+            fail("Generated outbound skill checker missing-one-off-capability message changed.")
 
         provider_contract_policy_md = valid_skill_md.replace(
             "Provider onboarding blocker: none.\n\n## Execution Modes",
@@ -1319,6 +1421,7 @@ Provider host runtime: Codex.
 MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.
 Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.
 Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.
+One-off call capability: passed with the configured MCP route.
 Provider onboarding blocker: none.
 
 """,

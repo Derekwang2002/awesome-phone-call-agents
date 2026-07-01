@@ -18,9 +18,10 @@ const BINDING_LEVEL_RE =
   /^\s*(?:[-*]\s*)?(?:selected\s+)?binding level\s*(?:is|:)\s*`?(fully-bound|parameterized-bound)`?/imu;
 const EXECUTION_MODE_RE =
   /^\s*(?:[-*]\s*)?(?:selected\s+)?execution mode\s*(?:is|:)\s*`?(dry-run-then-batch-approval|approved-direct-execution)`?/imu;
-const AFFIRMATIVE_DRY_RUN_ONLY_DECLARATION_RE =
-  /\b(?:(?:(?:this|the)\s+)?(?:generated\s+)?(?:workflow|skill)\s+(?:is|remains|must\s+remain)|keeps?\s+(?:the\s+)?(?:generated\s+)?(?:workflow|skill))\s+dry[-\s]?run[-\s]?only\b/iu;
+const AFFIRMATIVE_DRY_RUN_ONLY_DECLARATION_RE = /\bdry[-\s]?run[-\s]?only\b/iu;
 const NEGATED_DRY_RUN_ONLY_RE = /\bnot[\s_-]+dry[-\s_]?run[-\s_]?only\b/iu;
+const BLOCKER_SPECIFIC_DRY_RUN_ONLY_CONTEXT_RE =
+  /\b(?:onboarding|blocker|blocked|source|provider|auth|authentication|credential|credentials|route|setup|configured|resolved|complete|completed|available|ready|verified|refreshed)\b/iu;
 const PROVIDER_EVIDENCE_LINE_RE =
   /(?:(?:provider\s+)?host runtime|provider_host_runtime|mcp route setup check result|provider route setup check result|mcp_route_setup_check|provider route|provider_route|provider (?:authentication|auth readiness) check result|provider auth(?:entication)?|auth_readiness|compatible MCP provider tools|compatible provider tools|compatible_tools|one[- ]off call capability|one_off_call_capability)\s*:(.*)$/iu;
 const DISALLOWED_PROVIDER_EVIDENCE_RE = /inferred|mcp__codex_apps__|call_e_zhiwen|botlab/iu;
@@ -244,6 +245,13 @@ const BOUND_PROVIDER_READY_MARKERS = [
       /^\s*compatible_tools\s*:/imu,
     ],
   },
+  {
+    label: "one-off call capability",
+    patterns: [
+      /one[- ]off call capability\s*:/iu,
+      /^\s*one_off_call_capability\s*:/imu,
+    ],
+  },
 ];
 const SOURCE_BLOCKER_PATTERNS = [
   /^\s*(?:source\s+)?onboarding blocker\s*:\s*([^\n]*)/imu,
@@ -364,7 +372,10 @@ function getDryRunOnlyDeclarationState(textSegments) {
         hasNegatedDeclaration = true;
         continue;
       }
-      if (AFFIRMATIVE_DRY_RUN_ONLY_DECLARATION_RE.test(line)) {
+      if (
+        AFFIRMATIVE_DRY_RUN_ONLY_DECLARATION_RE.test(line) &&
+        BLOCKER_SPECIFIC_DRY_RUN_ONLY_CONTEXT_RE.test(line)
+      ) {
         hasAffirmativeDeclaration = true;
       }
     }

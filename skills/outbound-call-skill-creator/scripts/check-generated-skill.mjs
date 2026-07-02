@@ -18,6 +18,8 @@ const CONTRADICTORY_STATUS_RESULT_RE =
   /\b(?:failed|missing|incomplete|unavailable|not available|unsupported|not run|not ready|not configured|pending|blocked)\b/iu;
 const REQUIRED_ACTION_STATUS_RESULT_RE =
   /\b(?:requires|needs?)\b|\b(?:auth(?:entication)?|authorization|oauth|login|setup|configuration|action)\s+required\b|\brequired\s+(?:before|to)\b/iu;
+const NO_REQUIRED_ACTION_STATUS_RESULT_RE =
+  /\bno\s+(?:extra|additional|separate\s+)?(?:auth(?:entication)?|authorization|oauth|login|setup|configuration|action)\s+(?:is\s+)?required\b|\b(?:auth(?:entication)?|authorization|oauth|login|setup|configuration|action)\s+(?:is\s+)?not\s+required\b|\bno\s+need\s+(?:for|to)\b/giu;
 const BLOCKING_EVIDENCE_RESULT_RE =
   /\b(?:failed|missing|incomplete|unavailable|not available|unsupported|not run|not ready|not configured|pending|blocked)\b/iu;
 const EMPTY_EVIDENCE_RESULT_RE = /^(?:none|n\/a|na|not applicable|no)[.;]*$/iu;
@@ -436,9 +438,13 @@ function classifyOnboardingStatusLine(statusLine, allowBlockedStatus) {
     return "";
   }
   if (AFFIRMATIVE_PASS_RESULT_RE.test(normalizedStatusLine)) {
+    const actionableStatusLine = normalizedBlockingStatusLine.replace(
+      NO_REQUIRED_ACTION_STATUS_RESULT_RE,
+      " ",
+    );
     if (
       CONTRADICTORY_STATUS_RESULT_RE.test(normalizedBlockingStatusLine) ||
-      REQUIRED_ACTION_STATUS_RESULT_RE.test(normalizedBlockingStatusLine)
+      REQUIRED_ACTION_STATUS_RESULT_RE.test(actionableStatusLine)
     ) {
       return "conflicted";
     }

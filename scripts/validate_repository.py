@@ -931,6 +931,49 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
                 ),
             ),
             (
+                "no source authentication required wording",
+                valid_skill_md.replace(
+                    "Authentication or access check result: passed with local source credentials.",
+                    (
+                        "Authentication or access check result: passed; no authentication "
+                        "required for local CSV."
+                    ),
+                ),
+            ),
+            (
+                "no separate provider OAuth required wording",
+                valid_skill_md.replace(
+                    (
+                        "Provider authentication check result: passed with `codex mcp list` "
+                        "reporting OAuth for calle-prod."
+                    ),
+                    (
+                        "Provider authentication check result: passed; no separate OAuth "
+                        "required for the managed connector."
+                    ),
+                ),
+            ),
+            (
+                "provider OAuth not required wording",
+                valid_skill_md.replace(
+                    (
+                        "Provider authentication check result: passed with `codex mcp list` "
+                        "reporting OAuth for calle-prod."
+                    ),
+                    (
+                        "Provider authentication check result: passed; OAuth is not "
+                        "required for this host connector."
+                    ),
+                ),
+            ),
+            (
+                "no need for source OAuth wording",
+                valid_skill_md.replace(
+                    "Authentication or access check result: passed with local source credentials.",
+                    "Authentication or access check result: passed; no need for OAuth for local CSV.",
+                ),
+            ),
+            (
                 "required compatible tools wording",
                 valid_skill_md.replace(
                     (
@@ -3832,6 +3875,17 @@ Runtime parameters still allowed: date window and approved source instance ident
             valid_skill_md.replace(
                 "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
                 "Provider authentication check result: passed but requires OAuth login before calls.",
+            ),
+            "Generated skill SKILL.md has contradictory passed provider authentication or auth readiness check result line",
+        ),
+        (
+            "contradictory provider authentication mixed no-oauth and setup-required status",
+            valid_skill_md.replace(
+                "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
+                (
+                    "Provider authentication check result: passed; no separate OAuth required "
+                    "but requires connector setup before calls."
+                ),
             ),
             "Generated skill SKILL.md has contradictory passed provider authentication or auth readiness check result line",
         ),

@@ -10,6 +10,7 @@ Use this reference before asking the user creation questions. The creator should
 - If the user provides several values at once, record all of them and continue from the first missing value.
 - Only require extra user work when the user has a special preference or a manual step is unavoidable, such as OAuth completion, a source locator, or writeback target confirmation.
 - Do not ask for skill name, output target, binding level, execution mode, full field mapping, or writeback behavior before workflow, source family, and call goal are established, unless the user already supplied those later values.
+- Do not confirm writeback targets before source access and representative sampling have identified supported writeback paths.
 - Do not make the user choose by internal terms such as binding level, execution mode, provider onboarding, runtime gate, or writeback binding. Use plain user-facing labels first and keep internal terms as optional parenthetical detail for contracts, summaries, and advanced users.
 
 ## Known Values
@@ -57,8 +58,10 @@ When a setup step requires manual user action, describe the visible action inste
 4. Confirm the outbound call goal with a recommended goal draft.
 5. Recommend workflow reuse and preview policy together, using plain labels first.
 6. Confirm the skill name with one recommended lowercase hyphenated slug.
-7. Confirm the writeback target by listing source-specific writeback options.
-8. Continue with source access check, call provider connection, output target confirmation when needed, generation, validation, and creation summary.
+7. Continue with source access check and representative sample fetch.
+8. Confirm the discovered field mapping and default goal contract derived from sampled fields.
+9. Confirm the writeback target only after the source access check and representative sample identify supported writeback paths.
+10. Continue with call provider connection, output target confirmation when needed, generation, validation, and creation summary.
 
 ## Copyable Examples
 
@@ -139,21 +142,21 @@ Do not present unsupported binding levels or per-candidate approval modes.
 
 ## Writeback Prompt
 
-List source-specific writeback options and recommend the safest one:
+Use this prompt only after source access and representative sampling have identified the supported writeback paths. List only options proven by the source access check, representative sample, linked metadata, or exposed source tools, and recommend the safest one:
 
-- Google Form: linked response spreadsheet writeback when available.
-- TikTok Ads: approved MCP writeback tool or approved connector action when available.
+- Google Form: linked response spreadsheet writeback only when the linked spreadsheet or approved writeback route is discovered.
+- TikTok Ads: approved MCP writeback tool or approved connector action only when the source route exposes it.
 - Local CSV: separate result CSV by default; source CSV update only when explicitly requested.
 - Custom source: source writeback only when an exact approved writeback action and field mapping are known.
 
-Do not list session-table output as a normal writeback option. Treat it as a fallback when writeback is unavailable, blocked, or intentionally omitted.
+Do not list session-table output as a normal writeback option. Treat it as a last-resort attended fallback when durable writeback or durable result output is unavailable, blocked, or intentionally omitted.
 
 Example:
 
 ```text
 Recommended: Write results back to the linked response spreadsheet.
 
-Other option: No writeback now; use a session table fallback if writeback is unavailable.
+Other option: Write a separate result CSV if source writeback is unavailable or not requested.
 
 You can reply with:
 Write results back to the linked response spreadsheet.

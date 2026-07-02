@@ -12,8 +12,17 @@ const AFFIRMATIVE_PASS_RESULT_RE =
   /^(?:passed|verified|confirmed|completed|succeeded)\b/iu;
 const NEGATED_PASS_RESULT_RE =
   /^not[\s_-]+(?:passed|verified|confirmed|completed|succeeded)\b/iu;
-const BLOCKING_RESULT_RE =
+const BLOCKING_STATUS_RESULT_RE =
   /\b(?:failed|missing|incomplete|unavailable|not available|unsupported|not run|not ready|not configured|pending|required|blocked|requires|needs?)\b/iu;
+const CONTRADICTORY_STATUS_RESULT_RE =
+  /\b(?:failed|missing|incomplete|unavailable|not available|unsupported|not run|not ready|not configured|pending|blocked)\b/iu;
+const BLOCKING_EVIDENCE_RESULT_RE =
+  /\b(?:failed|missing|incomplete|unavailable|not available|unsupported|not run|not ready|not configured|pending|blocked)\b/iu;
+const EMPTY_EVIDENCE_RESULT_RE = /^(?:none|n\/a|na|not applicable|no)[.;]*$/iu;
+const NO_EXTRA_EVIDENCE_REQUIRED_RE =
+  /^no\s+(?:extra|additional|separate)\b.*\b(?:needed|required)\b/iu;
+const NO_EVIDENCE_RESULT_RE =
+  /^no\b(?=.*\b(?:route|mapping|tools?|capability|runtime|provider|source|goal)\b)|^no\b(?=.*\bsample\b(?!\s+summar))/iu;
 const BINDING_LEVEL_RE =
   /^\s*(?:[-*]\s*)?(?:selected\s+)?binding level\s*(?:is|:)\s*`?(fully-bound|parameterized-bound)`?/imu;
 const EXECUTION_MODE_RE =
@@ -147,62 +156,71 @@ const BOUND_SOURCE_ALWAYS_MARKERS = [
   {
     label: "source access route",
     patterns: [
-      /^\s*(?:source\s+)?access route\s*:/imu,
-      /^\s*(?:source_)?access_route\s*:/imu,
+      /^\s*(?:source\s+)?access route\s*:\s*([^\n]*)/imu,
+      /^\s*(?:source_)?access_route\s*:\s*([^\n]*)/imu,
     ],
+    evidenceLine: true,
   },
   {
     label: "source access route discovery result",
     patterns: [
-      /^\s*source access route discovery result\s*:/imu,
-      /^\s*source_access_route_discovery_result\s*:/imu,
+      /^\s*source access route discovery result\s*:\s*([^\n]*)/imu,
+      /^\s*source_access_route_discovery_result\s*:\s*([^\n]*)/imu,
     ],
+    evidenceLine: true,
   },
   ...BOUND_SOURCE_STATUS_MARKERS,
   {
     label: "redaction policy for sample summaries",
     patterns: [
-      /^\s*redaction policy(?: for sample summaries)?\s*:/imu,
-      /^\s*redaction_policy_for_sample_summaries\s*:/imu,
+      /^\s*redaction policy(?: for sample summaries)?\s*:\s*([^\n]*)/imu,
+      /^\s*redaction_policy_for_sample_summaries\s*:\s*([^\n]*)/imu,
     ],
+    evidenceLine: true,
   },
   {
     label: "runtime parameters still allowed",
     patterns: [
-      /^\s*runtime parameters still allowed\s*:/imu,
-      /^\s*runtime_parameters_still_allowed\s*:/imu,
+      /^\s*runtime parameters still allowed\s*:\s*([^\n]*)/imu,
+      /^\s*runtime_parameters_still_allowed\s*:\s*([^\n]*)/imu,
     ],
+    evidenceLine: true,
+    allowNone: true,
   },
 ];
 const BOUND_SOURCE_READY_MARKERS = [
   {
     label: "sampled source instance",
     patterns: [
-      /^\s*sampled source instance\s*:/imu,
-      /^\s*sampled_source_instance\s*:/imu,
+      /^\s*sampled source instance\s*:\s*([^\n]*)/imu,
+      /^\s*sampled_source_instance\s*:\s*([^\n]*)/imu,
     ],
+    evidenceLine: true,
   },
   {
     label: "discovered field mapping",
     patterns: [
-      /^\s*discovered field mapping\s*:/imu,
-      /^\s*(?:discovered_)?field_mapping\s*:/imu,
+      /^\s*discovered field mapping\s*:\s*([^\n]*)/imu,
+      /^\s*(?:discovered_)?field_mapping\s*:\s*([^\n]*)/imu,
     ],
+    evidenceLine: true,
   },
   {
     label: "user-confirmed field mapping",
     patterns: [
-      /^\s*user-confirmed field mapping\s*:/imu,
-      /^\s*user_confirmed_field_mapping\s*:/imu,
+      /^\s*user-confirmed field mapping\s*:\s*([^\n]*)/imu,
+      /^\s*user_confirmed_field_mapping\s*:\s*([^\n]*)/imu,
       /field mapping confirmed after (?:the )?(?:representative )?sample/iu,
     ],
+    evidenceLine: true,
   },
   {
     label: "default goal contract derived from sampled fields",
     patterns: [
-      /^\s*default goal contract derived from sampled fields\s*:/imu,
-      /^\s*default_goal_source\s*:/imu,
+      /^\s*default goal contract derived from sampled fields\s*:\s*([^\n]*)/imu,
+      /^\s*default_goal_source\s*:\s*([^\n]*)/imu,
     ],
+    evidenceLine: true,
   },
 ];
 const BOUND_PROVIDER_STATUS_MARKERS = [
@@ -229,10 +247,11 @@ const BOUND_PROVIDER_ALWAYS_MARKERS = [
   {
     label: "configured provider host runtime",
     patterns: [
-      /provider host runtime\s*:/iu,
-      /host runtime\s*:/iu,
-      /^\s*provider_host_runtime\s*:/imu,
+      /provider host runtime\s*:\s*([^\n]*)/iu,
+      /host runtime\s*:\s*([^\n]*)/iu,
+      /^\s*provider_host_runtime\s*:\s*([^\n]*)/imu,
     ],
+    evidenceLine: true,
   },
   ...BOUND_PROVIDER_STATUS_MARKERS,
 ];
@@ -244,24 +263,23 @@ const BOUND_PROVIDER_ONE_OFF_CAPABILITY_MARKER = {
   ],
   resultLine: true,
 };
+const BOUND_PROVIDER_COMPATIBLE_TOOLS_MARKER = {
+  label: "compatible MCP provider tools",
+  patterns: [
+    /compatible MCP provider tools\s*:\s*([^\n]*)/iu,
+    /compatible provider tools\s*:\s*([^\n]*)/iu,
+    /^\s*compatible_tools\s*:\s*([^\n]*)/imu,
+  ],
+  evidenceLine: true,
+};
 const BOUND_PROVIDER_READY_MARKERS = [
-  {
-    label: "compatible MCP provider tools",
-    patterns: [
-      /compatible MCP provider tools\s*:/iu,
-      /compatible provider tools\s*:/iu,
-      /^\s*compatible_tools\s*:/imu,
-    ],
-  },
+  BOUND_PROVIDER_COMPATIBLE_TOOLS_MARKER,
   BOUND_PROVIDER_ONE_OFF_CAPABILITY_MARKER,
 ];
 const BOUND_PROVIDER_BLOCKING_STATUS_MARKERS = [
   ...BOUND_PROVIDER_STATUS_MARKERS,
+  BOUND_PROVIDER_COMPATIBLE_TOOLS_MARKER,
   BOUND_PROVIDER_ONE_OFF_CAPABILITY_MARKER,
-];
-const SOURCE_BLOCKER_PATTERNS = [
-  /^\s*(?:source\s+)?onboarding blocker\s*:\s*([^\n]*)/imu,
-  /^\s*onboarding_blocker\s*:\s*([^\n]*)/imu,
 ];
 const PROVIDER_BLOCKER_PATTERNS = [
   /^\s*provider onboarding blocker\s*:\s*([^\n]*)/imu,
@@ -358,12 +376,23 @@ function extractSection(text, heading) {
   return match ? match[1] : "";
 }
 
+function extractAllSections(text, heading) {
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const pattern = new RegExp(
+    `(?:^|\\r?\\n)##[ \\t]+${escapedHeading}[ \\t]*(?:\\r?\\n|$)` +
+      `([\\s\\S]*?)(?=\\r?\\n##[ \\t]+|$)`,
+    "igu",
+  );
+  return [...text.matchAll(pattern)].map((match) => match[1]);
+}
+
 function extractSections(text, headings) {
   const sectionTexts = [];
   for (const heading of headings) {
-    const sectionText = extractSection(text, heading);
-    if (sectionText.trim()) {
-      sectionTexts.push(sectionText);
+    for (const sectionText of extractAllSections(text, heading)) {
+      if (sectionText.trim()) {
+        sectionTexts.push(sectionText);
+      }
     }
   }
   return sectionTexts.join("\n");
@@ -405,32 +434,75 @@ function classifyOnboardingStatusLine(statusLine, allowBlockedStatus) {
     return "";
   }
   if (AFFIRMATIVE_PASS_RESULT_RE.test(normalizedStatusLine)) {
+    if (CONTRADICTORY_STATUS_RESULT_RE.test(normalizedBlockingStatusLine)) {
+      return "conflicted";
+    }
     return "passed";
   }
   if (
     allowBlockedStatus &&
     (NEGATED_PASS_RESULT_RE.test(normalizedStatusLine) ||
-      BLOCKING_RESULT_RE.test(normalizedBlockingStatusLine))
+      BLOCKING_STATUS_RESULT_RE.test(normalizedBlockingStatusLine))
   ) {
     return "blocked";
   }
   return "";
 }
 
+function classifyEvidenceValueLine(evidenceValue, allowBlockedStatus, marker = {}) {
+  const normalizedEvidenceValue = evidenceValue.trim();
+  const normalizedBlockingEvidenceValue = normalizedEvidenceValue.replace(/[_-]+/gu, " ");
+  if (!normalizedEvidenceValue || /\bplaceholder\b/iu.test(normalizedEvidenceValue)) {
+    return "";
+  }
+  if (
+    !marker.allowNone &&
+    !NO_EXTRA_EVIDENCE_REQUIRED_RE.test(normalizedEvidenceValue) &&
+    (EMPTY_EVIDENCE_RESULT_RE.test(normalizedEvidenceValue) ||
+      NO_EVIDENCE_RESULT_RE.test(normalizedEvidenceValue))
+  ) {
+    return allowBlockedStatus ? "blocked" : "";
+  }
+  if (
+    NEGATED_PASS_RESULT_RE.test(normalizedEvidenceValue) ||
+    BLOCKING_EVIDENCE_RESULT_RE.test(normalizedBlockingEvidenceValue)
+  ) {
+    return allowBlockedStatus ? "blocked" : "";
+  }
+  return "passed";
+}
+
+function classifyMarkerMatch(marker, match, allowBlockedStatus) {
+  if (marker.resultLine) {
+    return classifyOnboardingStatusLine(match[1] || "", allowBlockedStatus);
+  }
+  if (marker.evidenceLine) {
+    if (match.length < 2) {
+      return "passed";
+    }
+    return classifyEvidenceValueLine(match[1] || "", allowBlockedStatus, marker);
+  }
+  return "";
+}
+
 function getOnboardingStatus(text, marker, allowBlockedStatus) {
-  if (!marker.resultLine) {
+  if (!marker.resultLine && !marker.evidenceLine) {
     return "";
   }
   let seenPassedStatus = false;
   let seenBlockedStatus = false;
   for (const pattern of marker.patterns) {
     for (const match of findPatternMatches(text, pattern)) {
-      const status = classifyOnboardingStatusLine(match[1] || "", allowBlockedStatus);
+      const status = classifyMarkerMatch(marker, match, allowBlockedStatus);
       if (status === "passed") {
         seenPassedStatus = true;
       }
       if (status === "blocked") {
         seenBlockedStatus = true;
+      }
+      if (status === "conflicted") {
+        fail(`Generated skill SKILL.md has contradictory ${marker.label} line`);
+        return "";
       }
     }
   }
@@ -456,10 +528,25 @@ function hasAcceptedOnboardingStatusLine(text, statusLinePattern, allowBlockedSt
   return false;
 }
 
+function hasAcceptedEvidenceLine(text, marker, evidenceLinePattern, allowBlockedStatus) {
+  for (const match of findPatternMatches(text, evidenceLinePattern)) {
+    if (classifyMarkerMatch(marker, match, allowBlockedStatus)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function hasMarkerWithAllowedStatus(text, marker, allowBlockedStatus) {
   for (const pattern of marker.patterns) {
     if (marker.resultLine) {
       if (hasAcceptedOnboardingStatusLine(text, pattern, allowBlockedStatus)) {
+        return true;
+      }
+      continue;
+    }
+    if (marker.evidenceLine) {
+      if (hasAcceptedEvidenceLine(text, marker, pattern, allowBlockedStatus)) {
         return true;
       }
       continue;
@@ -469,6 +556,70 @@ function hasMarkerWithAllowedStatus(text, marker, allowBlockedStatus) {
     }
   }
   return false;
+}
+
+function failOnConflictingStatusLines(text, markers) {
+  for (const marker of markers) {
+    getOnboardingStatus(text, marker, true);
+  }
+}
+
+function requireMarkerGroup(text, markers, allowBlockedStatus, messagePrefix) {
+  for (const marker of markers) {
+    if (!hasMarkerWithAllowedStatus(text, marker, allowBlockedStatus)) {
+      fail(`${messagePrefix} ${marker.label}`);
+    }
+  }
+}
+
+function validateBoundSourceOnboarding(sourceOnboardingText) {
+  failOnConflictingStatusLines(sourceOnboardingText, [
+    ...BOUND_SOURCE_ALWAYS_MARKERS,
+    ...BOUND_SOURCE_READY_MARKERS,
+  ]);
+  requireMarkerGroup(
+    sourceOnboardingText,
+    BOUND_SOURCE_ALWAYS_MARKERS,
+    false,
+    "Bound generated skill SKILL.md must include",
+  );
+  requireMarkerGroup(
+    sourceOnboardingText,
+    BOUND_SOURCE_READY_MARKERS,
+    false,
+    "Bound generated skill SKILL.md must include",
+  );
+}
+
+function validateBoundProviderOnboarding(providerOnboardingText, allowsBlockedOnboarding) {
+  failOnConflictingStatusLines(providerOnboardingText, [
+    ...BOUND_PROVIDER_ALWAYS_MARKERS,
+    ...BOUND_PROVIDER_READY_MARKERS,
+  ]);
+  const providerOnboardingStatuses = BOUND_PROVIDER_BLOCKING_STATUS_MARKERS.map((marker) =>
+    getOnboardingStatus(providerOnboardingText, marker, allowsBlockedOnboarding),
+  );
+  const hasBlockedProviderOnboarding = providerOnboardingStatuses.includes("blocked");
+  requireMarkerGroup(
+    providerOnboardingText,
+    BOUND_PROVIDER_ALWAYS_MARKERS,
+    allowsBlockedOnboarding,
+    "Bound generated skill SKILL.md must include",
+  );
+  if (hasBlockedProviderOnboarding) {
+    if (!hasNonEmptyBlocker(providerOnboardingText, PROVIDER_BLOCKER_PATTERNS)) {
+      fail(
+        "Dry-run-only blocked provider onboarding must include a non-empty provider onboarding blocker",
+      );
+    }
+    return;
+  }
+  requireMarkerGroup(
+    providerOnboardingText,
+    BOUND_PROVIDER_READY_MARKERS,
+    allowsBlockedOnboarding,
+    "Bound generated skill SKILL.md must include",
+  );
 }
 
 function hasNonEmptyBlocker(text, blockerPatterns) {
@@ -680,26 +831,7 @@ const allowsBlockedOnboarding =
   !dryRunOnlyDeclarationState.hasNegatedDeclaration;
 
 if (["fully-bound", "parameterized-bound"].includes(selectedBindingLevel)) {
-  const sourceOnboardingStatuses = BOUND_SOURCE_STATUS_MARKERS.map((marker) =>
-    getOnboardingStatus(sourceOnboardingText, marker, allowsBlockedOnboarding),
-  );
-  const hasBlockedSourceOnboarding = sourceOnboardingStatuses.includes("blocked");
-  for (const marker of BOUND_SOURCE_ALWAYS_MARKERS) {
-    if (!hasMarkerWithAllowedStatus(sourceOnboardingText, marker, allowsBlockedOnboarding)) {
-      fail(`Bound generated skill SKILL.md must include ${marker.label}`);
-    }
-  }
-  if (hasBlockedSourceOnboarding) {
-    if (!hasNonEmptyBlocker(sourceOnboardingText, SOURCE_BLOCKER_PATTERNS)) {
-      fail("Dry-run-only blocked source onboarding must include a non-empty onboarding blocker");
-    }
-  } else {
-    for (const marker of BOUND_SOURCE_READY_MARKERS) {
-      if (!hasMarkerWithAllowedStatus(sourceOnboardingText, marker, allowsBlockedOnboarding)) {
-        fail(`Bound generated skill SKILL.md must include ${marker.label}`);
-      }
-    }
-  }
+  validateBoundSourceOnboarding(sourceOnboardingText);
   if (
     hasDisallowedProviderEvidence(providerOnboardingText, {
       scanFreeFormEvidence: true,
@@ -709,28 +841,7 @@ if (["fully-bound", "parameterized-bound"].includes(selectedBindingLevel)) {
       "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools",
     );
   }
-  const providerOnboardingStatuses = BOUND_PROVIDER_BLOCKING_STATUS_MARKERS.map((marker) =>
-    getOnboardingStatus(providerOnboardingText, marker, allowsBlockedOnboarding),
-  );
-  const hasBlockedProviderOnboarding = providerOnboardingStatuses.includes("blocked");
-  for (const marker of BOUND_PROVIDER_ALWAYS_MARKERS) {
-    if (!hasMarkerWithAllowedStatus(providerOnboardingText, marker, allowsBlockedOnboarding)) {
-      fail(`Bound generated skill SKILL.md must include ${marker.label}`);
-    }
-  }
-  if (hasBlockedProviderOnboarding) {
-    if (!hasNonEmptyBlocker(providerOnboardingText, PROVIDER_BLOCKER_PATTERNS)) {
-      fail(
-        "Dry-run-only blocked provider onboarding must include a non-empty provider onboarding blocker",
-      );
-    }
-  } else {
-    for (const marker of BOUND_PROVIDER_READY_MARKERS) {
-      if (!hasMarkerWithAllowedStatus(providerOnboardingText, marker, allowsBlockedOnboarding)) {
-        fail(`Bound generated skill SKILL.md must include ${marker.label}`);
-      }
-    }
-  }
+  validateBoundProviderOnboarding(providerOnboardingText, allowsBlockedOnboarding);
 }
 
 if (!/runtime gate/iu.test(skillText)) {

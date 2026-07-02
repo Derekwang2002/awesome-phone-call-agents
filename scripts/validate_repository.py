@@ -58,6 +58,16 @@ def parse_frontmatter(text: str, path: Path) -> dict[str, str]:
     return result
 
 
+def iter_skill_dirs() -> list[Path]:
+    skills_dir = ROOT / "skills"
+    if not skills_dir.exists():
+        fail("Missing skills/ directory.")
+    skill_dirs = sorted(path for path in skills_dir.iterdir() if path.is_dir())
+    if not skill_dirs:
+        fail("No skills found in skills/.")
+    return skill_dirs
+
+
 def validate_readme() -> None:
     text = read(ROOT / "README.md")
     if not text.startswith(f"# {REPOSITORY_TITLE}"):
@@ -151,16 +161,10 @@ def validate_english_only() -> None:
 
 
 def validate_skills() -> None:
-    skills_dir = ROOT / "skills"
     allowed_skill_readmes = {
         ROOT / "skills" / "outbound-call-skill-creator" / "README.md",
     }
-    if not skills_dir.exists():
-        fail("Missing skills/ directory.")
-    skill_dirs = [p for p in skills_dir.iterdir() if p.is_dir()]
-    if not skill_dirs:
-        fail("No skills found in skills/.")
-    for skill_dir in skill_dirs:
+    for skill_dir in iter_skill_dirs():
         if not SLUG_RE.match(skill_dir.name):
             fail(f"Skill directory is not a lowercase slug: {skill_dir.name}")
         skill_readme = skill_dir / "README.md"
@@ -186,6 +190,11 @@ def validate_skills() -> None:
             fail(f"Skill description is too short: {skill_md.relative_to(ROOT)}")
         if "phone" not in description.lower() and "call" not in description.lower():
             fail(f"Skill description should mention phone/call workflow: {skill_md.relative_to(ROOT)}")
+        references_dir = skill_dir / "references"
+        if not references_dir.is_dir():
+            fail(f"Skill must include references/ directory: {references_dir.relative_to(ROOT)}")
+        read(references_dir / "safety.md")
+        read(references_dir / "examples.md")
 
 
 def validate_expected_files() -> None:
@@ -224,28 +233,6 @@ def validate_expected_files() -> None:
         "scripts/check_branch_name.py",
         "scripts/create_branch.py",
         "scripts/validate_repository.py",
-        "skills/call-reminder/SKILL.md",
-        "skills/call-reminder/references/client-adapters.md",
-        "skills/call-reminder/references/runtime-prompt.md",
-        "skills/call-reminder/references/calle-cli-bootstrap.md",
-        "skills/call-reminder/references/safety.md",
-        "skills/call-reminder/references/examples.md",
-        "skills/call-reminder/scripts/detect-client.mjs",
-        "skills/call-reminder/scripts/render-runtime-prompt.mjs",
-        "skills/call-reminder/scripts/validate-reminder-input.mjs",
-        "skills/outbound-call-skill-creator/SKILL.md",
-        "skills/outbound-call-skill-creator/README.md",
-        "skills/outbound-call-skill-creator/references/binding-contract.md",
-        "skills/outbound-call-skill-creator/references/creation-summary.md",
-        "skills/outbound-call-skill-creator/references/data-sources.md",
-        "skills/outbound-call-skill-creator/references/execution-modes.md",
-        "skills/outbound-call-skill-creator/references/generated-skill-contract.md",
-        "skills/outbound-call-skill-creator/references/interaction-flow.md",
-        "skills/outbound-call-skill-creator/references/mcp-provider-route.md",
-        "skills/outbound-call-skill-creator/references/output-targets.md",
-        "skills/outbound-call-skill-creator/references/safety.md",
-        "skills/outbound-call-skill-creator/references/examples.md",
-        "skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs",
     ]
     for rel in expected:
         read(ROOT / rel)
@@ -416,6 +403,21 @@ def forbid_text(path: Path, snippets: list[str]) -> None:
     for snippet in snippets:
         if snippet in text:
             fail(f"Forbidden text in {path.relative_to(ROOT)}: {snippet}")
+
+
+def require_text_order(path: Path, earlier: str, later: str) -> None:
+    text = read(path)
+    earlier_index = text.find(earlier)
+    later_index = text.find(later)
+    if earlier_index == -1:
+        fail(f"Missing required text in {path.relative_to(ROOT)}: {earlier}")
+    if later_index == -1:
+        fail(f"Missing required text in {path.relative_to(ROOT)}: {later}")
+    if earlier_index > later_index:
+        fail(
+            f"Required text order is wrong in {path.relative_to(ROOT)}: "
+            f"{earlier!r} must appear before {later!r}"
+        )
 
 
 def validate_call_reminder_acceptance_rules() -> None:
@@ -608,6 +610,7 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "Ask for only the next missing piece of information needed to continue.",
             "If the user provides several values at once, record all of them and continue from the first missing value.",
             "Do not ask for skill name, output target, binding level, execution mode, full field mapping, or writeback behavior before workflow, source family, and call goal are established",
+            "Do not confirm writeback targets before source access and representative sampling have identified supported writeback paths.",
             "User-Facing Language Boundary",
             "Do not ask users to choose by internal terms",
             "Reusable workflow",
@@ -622,6 +625,11 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "Do not list session-table output as a normal writeback option.",
             "Action needed",
         ],
+    )
+    require_text_order(
+        skill_dir / "references" / "interaction-flow.md",
+        "Continue with source access check and representative sample fetch.",
+        "Confirm the writeback target",
     )
     require_text(
         skill_dir / "references" / "mcp-provider-route.md",
@@ -829,6 +837,73 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
                 + (success.stderr or success.stdout).strip()
             )
 
+        valid_evidence_wording_cases = [
+            (
+                "required redaction policy wording",
+                valid_skill_md.replace(
+                    "Redaction policy for sample summaries: mask phone numbers and omit credentials.",
+                    (
+                        "Redaction policy for sample summaries: phone-number masking "
+                        "is required and credentials are omitted."
+                    ),
+                ),
+            ),
+            (
+                "negative redaction policy wording",
+                valid_skill_md.replace(
+                    "Redaction policy for sample summaries: mask phone numbers and omit credentials.",
+                    (
+                        "Redaction policy for sample summaries: no raw phone numbers, "
+                        "no credentials, and masked sample summaries."
+                    ),
+                ),
+            ),
+            (
+                "required compatible tools wording",
+                valid_skill_md.replace(
+                    (
+                        "Compatible MCP provider tools: plan_call, run_call, and get_call_run "
+                        "are exposed by the configured MCP route for one-off calls."
+                    ),
+                    (
+                        "Compatible MCP provider tools: required tools plan_call, run_call, "
+                        "and get_call_run are exposed by the configured MCP route for one-off calls."
+                    ),
+                ),
+            ),
+            (
+                "no-extra-tools compatible tools wording",
+                valid_skill_md.replace(
+                    (
+                        "Compatible MCP provider tools: plan_call, run_call, and get_call_run "
+                        "are exposed by the configured MCP route for one-off calls."
+                    ),
+                    (
+                        "Compatible MCP provider tools: no extra tools needed; "
+                        "plan_call, run_call, and get_call_run are exposed by the configured "
+                        "MCP route for one-off calls."
+                    ),
+                ),
+            ),
+        ]
+        for case_name, skill_md in valid_evidence_wording_cases:
+            (skill_dir / "SKILL.md").write_text(skill_md, encoding="utf-8")
+            valid_evidence_wording_success = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if valid_evidence_wording_success.returncode != 0:
+                fail(
+                    f"Generated outbound skill checker must allow {case_name}: "
+                    + (
+                        valid_evidence_wording_success.stderr
+                        or valid_evidence_wording_success.stdout
+                    ).strip()
+                )
+
         temporal_execution_modes_md = valid_skill_md.replace(
             (
                 "Execution mode: dry-run-then-batch-approval. Supported alternative is approved-direct-execution\n"
@@ -1025,6 +1100,60 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
             not in unavailable_one_off_capability_output
         ):
             fail("Generated outbound skill checker unavailable-one-off-capability message changed.")
+
+        unavailable_compatible_tools_md = valid_skill_md.replace(
+            "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.",
+            "Compatible MCP provider tools: missing because no compatible MCP provider tools are exposed.",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            unavailable_compatible_tools_md,
+            encoding="utf-8",
+        )
+        unavailable_compatible_tools_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        unavailable_compatible_tools_output = (
+            unavailable_compatible_tools_failure.stdout
+            + unavailable_compatible_tools_failure.stderr
+        )
+        if unavailable_compatible_tools_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject unavailable compatible MCP provider tools.")
+        if (
+            "Bound generated skill SKILL.md must include compatible MCP provider tools"
+            not in unavailable_compatible_tools_output
+        ):
+            fail("Generated outbound skill checker unavailable-compatible-tools message changed.")
+
+        no_compatible_tools_md = valid_skill_md.replace(
+            "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.",
+            "Compatible MCP provider tools: no compatible provider tools are exposed.",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            no_compatible_tools_md,
+            encoding="utf-8",
+        )
+        no_compatible_tools_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        no_compatible_tools_output = (
+            no_compatible_tools_failure.stdout
+            + no_compatible_tools_failure.stderr
+        )
+        if no_compatible_tools_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject absent compatible MCP provider tools.")
+        if (
+            "Bound generated skill SKILL.md must include compatible MCP provider tools"
+            not in no_compatible_tools_output
+        ):
+            fail("Generated outbound skill checker no-compatible-tools message changed.")
 
         provider_contract_policy_md = valid_skill_md.replace(
             "Provider onboarding blocker: none.\n\n## Execution Modes",
@@ -1267,6 +1396,52 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
                 + (
                     provider_contract_after_placeholder_summary_success.stderr
                     or provider_contract_after_placeholder_summary_success.stdout
+                ).strip()
+            )
+
+        duplicate_provider_contract_heading_md = valid_skill_md.replace(
+            (
+                "## Provider Onboarding\n\n"
+                "Provider onboarding completed for the CALL-E MCP provider route.\n"
+                "Provider host runtime: Codex.\n"
+                "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.\n"
+                "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.\n"
+                "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.\n"
+                "One-off call capability: passed with the configured MCP route.\n"
+                "Provider onboarding blocker: none.\n"
+            ),
+            (
+                "## Provider Onboarding Contract\n\n"
+                "Provider onboarding summary: placeholder only.\n"
+                "MCP route setup check result: pending placeholder.\n"
+                "Provider authentication check result: pending placeholder.\n\n"
+                "## Provider Onboarding Contract\n\n"
+                "Provider onboarding completed for the CALL-E MCP provider route.\n"
+                "Provider host runtime: Codex.\n"
+                "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.\n"
+                "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.\n"
+                "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.\n"
+                "One-off call capability: passed with the configured MCP route.\n"
+                "Provider onboarding blocker: none.\n"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            duplicate_provider_contract_heading_md,
+            encoding="utf-8",
+        )
+        duplicate_provider_contract_heading_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if duplicate_provider_contract_heading_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must combine duplicate provider contract sections: "
+                + (
+                    duplicate_provider_contract_heading_success.stderr
+                    or duplicate_provider_contract_heading_success.stdout
                 ).strip()
             )
 
@@ -2488,6 +2663,61 @@ Runtime parameters still allowed: date window and approved source instance ident
         ):
             fail("Generated outbound skill checker missing-user-confirmed-field-mapping message changed.")
 
+    source_ready_placeholder_cases = [
+        (
+            "placeholder sampled source instance",
+            valid_skill_md.replace(
+                "Sampled source instance: representative-callback-source.",
+                "Sampled source instance: missing because no representative sample was fetched.",
+            ),
+            "Bound generated skill SKILL.md must include sampled source instance",
+        ),
+        (
+            "placeholder discovered field mapping",
+            valid_skill_md.replace(
+                "Discovered field mapping: candidate_id, phone_e164, name, submitted_at, consent, and callback_reason.",
+                "Discovered field mapping: missing because no representative sample was fetched.",
+            ),
+            "Bound generated skill SKILL.md must include discovered field mapping",
+        ),
+        (
+            "placeholder default goal from sampled fields",
+            valid_skill_md.replace(
+                "Default goal contract derived from sampled fields: call the respondent about callback_reason and summarize the result.",
+                "Default goal contract derived from sampled fields: missing because no representative sample was fetched.",
+            ),
+            "Bound generated skill SKILL.md must include default goal contract derived from sampled fields",
+        ),
+    ]
+    for case_name, skill_md, expected_error in source_ready_placeholder_cases:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skill_dir = Path(temp_dir) / "generated-callback-skill"
+            references_dir = skill_dir / "references"
+            references_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(skill_md, encoding="utf-8")
+            (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
+            (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
+
+            source_ready_placeholder_failure = subprocess.run(
+                ["node", str(checker), "--skill-dir", str(skill_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            source_ready_placeholder_output = (
+                source_ready_placeholder_failure.stdout
+                + source_ready_placeholder_failure.stderr
+            )
+            if source_ready_placeholder_failure.returncode == 0:
+                fail(f"Generated outbound skill checker must reject {case_name}.")
+            if expected_error not in source_ready_placeholder_output:
+                fail(
+                    "Generated outbound skill checker "
+                    + case_name
+                    + " message changed."
+                )
+
     with tempfile.TemporaryDirectory() as temp_dir:
         skill_dir = Path(temp_dir) / "generated-callback-skill"
         references_dir = skill_dir / "references"
@@ -2826,21 +3056,24 @@ Runtime parameters still allowed: date window and approved source instance ident
         (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
         (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
 
-        execution_section_dry_run_only_blocker_success = subprocess.run(
+        execution_section_dry_run_only_blocker_failure = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
-        if execution_section_dry_run_only_blocker_success.returncode != 0:
-            fail(
-                "Generated outbound skill checker must allow execution-section dry-run-only blockers: "
-                + (
-                    execution_section_dry_run_only_blocker_success.stderr
-                    or execution_section_dry_run_only_blocker_success.stdout
-                ).strip()
-            )
+        execution_section_dry_run_only_blocker_output = (
+            execution_section_dry_run_only_blocker_failure.stdout
+            + execution_section_dry_run_only_blocker_failure.stderr
+        )
+        if execution_section_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject execution-section dry-run-only source blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in execution_section_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker execution-section source blocker message changed.")
 
     generated_skill_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
         "Execution mode: dry-run-then-batch-approval. This workflow is dry-run-only until onboarding is complete.",
@@ -2861,21 +3094,24 @@ Runtime parameters still allowed: date window and approved source instance ident
         (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
         (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
 
-        generated_skill_dry_run_only_blocker_success = subprocess.run(
+        generated_skill_dry_run_only_blocker_failure = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
-        if generated_skill_dry_run_only_blocker_success.returncode != 0:
-            fail(
-                "Generated outbound skill checker must allow generated-skill dry-run-only blockers: "
-                + (
-                    generated_skill_dry_run_only_blocker_success.stderr
-                    or generated_skill_dry_run_only_blocker_success.stdout
-                ).strip()
-            )
+        generated_skill_dry_run_only_blocker_output = (
+            generated_skill_dry_run_only_blocker_failure.stdout
+            + generated_skill_dry_run_only_blocker_failure.stderr
+        )
+        if generated_skill_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject generated-skill dry-run-only source blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in generated_skill_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker generated-skill source blocker message changed.")
 
     keeps_generated_skill_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
         "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
@@ -2899,21 +3135,24 @@ Runtime parameters still allowed: date window and approved source instance ident
         (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
         (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
 
-        keeps_generated_skill_dry_run_only_blocker_success = subprocess.run(
+        keeps_generated_skill_dry_run_only_blocker_failure = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
-        if keeps_generated_skill_dry_run_only_blocker_success.returncode != 0:
-            fail(
-                "Generated outbound skill checker must allow blocker-keeps-dry-run-only wording: "
-                + (
-                    keeps_generated_skill_dry_run_only_blocker_success.stderr
-                    or keeps_generated_skill_dry_run_only_blocker_success.stdout
-                ).strip()
-            )
+        keeps_generated_skill_dry_run_only_blocker_output = (
+            keeps_generated_skill_dry_run_only_blocker_failure.stdout
+            + keeps_generated_skill_dry_run_only_blocker_failure.stderr
+        )
+        if keeps_generated_skill_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject blocker-keeps-dry-run-only source blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in keeps_generated_skill_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker blocker-keeps source blocker message changed.")
 
     source_section_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
         "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
@@ -2937,21 +3176,24 @@ Runtime parameters still allowed: date window and approved source instance ident
         (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
         (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
 
-        source_section_dry_run_only_blocker_success = subprocess.run(
+        source_section_dry_run_only_blocker_failure = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
-        if source_section_dry_run_only_blocker_success.returncode != 0:
-            fail(
-                "Generated outbound skill checker must allow source-section dry-run-only blockers: "
-                + (
-                    source_section_dry_run_only_blocker_success.stderr
-                    or source_section_dry_run_only_blocker_success.stdout
-                ).strip()
-            )
+        source_section_dry_run_only_blocker_output = (
+            source_section_dry_run_only_blocker_failure.stdout
+            + source_section_dry_run_only_blocker_failure.stderr
+        )
+        if source_section_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject source-section dry-run-only source blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in source_section_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker source-section source blocker message changed.")
 
     safety_section_dry_run_only_blocker_md = dry_run_only_source_blocker_md.replace(
         "Source onboarding recorded an onboarding blocker for this dry-run-only workflow.",
@@ -2978,21 +3220,24 @@ Runtime parameters still allowed: date window and approved source instance ident
         (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
         (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
 
-        safety_section_dry_run_only_blocker_success = subprocess.run(
+        safety_section_dry_run_only_blocker_failure = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
-        if safety_section_dry_run_only_blocker_success.returncode != 0:
-            fail(
-                "Generated outbound skill checker must allow safety-section dry-run-only blockers: "
-                + (
-                    safety_section_dry_run_only_blocker_success.stderr
-                    or safety_section_dry_run_only_blocker_success.stdout
-                ).strip()
-            )
+        safety_section_dry_run_only_blocker_output = (
+            safety_section_dry_run_only_blocker_failure.stdout
+            + safety_section_dry_run_only_blocker_failure.stderr
+        )
+        if safety_section_dry_run_only_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject safety-section dry-run-only source blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in safety_section_dry_run_only_blocker_output
+        ):
+            fail("Generated outbound skill checker safety-section source blocker message changed.")
 
     contradictory_source_dry_run_only_blocker_md = source_section_dry_run_only_blocker_md.replace(
         "no hidden recurring schedules, no credential exposure, and clear cancellation behavior.",
@@ -3197,21 +3442,24 @@ Runtime parameters still allowed: date window and approved source instance ident
         (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
         (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
 
-        dry_run_only_source_blocker_success = subprocess.run(
+        dry_run_only_source_blocker_failure = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
-        if dry_run_only_source_blocker_success.returncode != 0:
-            fail(
-                "Generated outbound skill checker must allow dry-run-only source blockers: "
-                + (
-                    dry_run_only_source_blocker_success.stderr
-                    or dry_run_only_source_blocker_success.stdout
-                ).strip()
-            )
+        dry_run_only_source_blocker_output = (
+            dry_run_only_source_blocker_failure.stdout
+            + dry_run_only_source_blocker_failure.stderr
+        )
+        if dry_run_only_source_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject dry-run-only source blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in dry_run_only_source_blocker_output
+        ):
+            fail("Generated outbound skill checker dry-run-only source blocker message changed.")
 
     dry_run_only_source_not_run_blocker_md = dry_run_only_source_blocker_md.replace(
         "Sample fetch result: missing because source access is blocked.",
@@ -3229,21 +3477,24 @@ Runtime parameters still allowed: date window and approved source instance ident
         (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
         (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
 
-        dry_run_only_source_not_run_blocker_success = subprocess.run(
+        dry_run_only_source_not_run_blocker_failure = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
-        if dry_run_only_source_not_run_blocker_success.returncode != 0:
-            fail(
-                "Generated outbound skill checker must allow dry-run-only source not_run blockers: "
-                + (
-                    dry_run_only_source_not_run_blocker_success.stderr
-                    or dry_run_only_source_not_run_blocker_success.stdout
-                ).strip()
-            )
+        dry_run_only_source_not_run_blocker_output = (
+            dry_run_only_source_not_run_blocker_failure.stdout
+            + dry_run_only_source_not_run_blocker_failure.stderr
+        )
+        if dry_run_only_source_not_run_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject dry-run-only source not_run blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in dry_run_only_source_not_run_blocker_output
+        ):
+            fail("Generated outbound skill checker dry-run-only source not-run blocker message changed.")
 
     dry_run_only_source_snake_negated_blocker_md = dry_run_only_source_blocker_md.replace(
         "Authentication or access check result: not passed because onboarding is blocked.",
@@ -3264,21 +3515,24 @@ Runtime parameters still allowed: date window and approved source instance ident
         (references_dir / "safety.md").write_text("# Safety\n", encoding="utf-8")
         (references_dir / "examples.md").write_text("# Examples\n", encoding="utf-8")
 
-        dry_run_only_source_snake_negated_blocker_success = subprocess.run(
+        dry_run_only_source_snake_negated_blocker_failure = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
-        if dry_run_only_source_snake_negated_blocker_success.returncode != 0:
-            fail(
-                "Generated outbound skill checker must allow dry-run-only source snake-case negated blockers: "
-                + (
-                    dry_run_only_source_snake_negated_blocker_success.stderr
-                    or dry_run_only_source_snake_negated_blocker_success.stdout
-                ).strip()
-            )
+        dry_run_only_source_snake_negated_blocker_output = (
+            dry_run_only_source_snake_negated_blocker_failure.stdout
+            + dry_run_only_source_snake_negated_blocker_failure.stderr
+        )
+        if dry_run_only_source_snake_negated_blocker_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject dry-run-only source snake-case negated blockers.")
+        if (
+            "Bound generated skill SKILL.md must include passed authentication or access check result"
+            not in dry_run_only_source_snake_negated_blocker_output
+        ):
+            fail("Generated outbound skill checker dry-run-only source snake-case blocker message changed.")
 
     dry_run_only_provider_blocker_md = valid_skill_md.replace(
         "Provider onboarding completed for the CALL-E MCP provider route.",
@@ -3490,6 +3744,59 @@ Runtime parameters still allowed: date window and approved source instance ident
             ),
             "Generated skill SKILL.md has conflicting passed provider authentication or auth readiness check result lines",
         ),
+        (
+            "contradictory source authentication status",
+            valid_skill_md.replace(
+                "Authentication or access check result: passed with local source credentials.",
+                "Authentication or access check result: passed but missing credentials.",
+            ),
+            "Generated skill SKILL.md has contradictory passed authentication or access check result line",
+        ),
+        (
+            "contradictory one-off call capability status",
+            valid_skill_md.replace(
+                "One-off call capability: passed with the configured MCP route.",
+                "One-off call capability: passed but missing because no run tool is exposed.",
+            ),
+            "Generated skill SKILL.md has contradictory one-off call capability line",
+        ),
+        (
+            "conflicting sampled source instance evidence",
+            valid_skill_md.replace(
+                "Sampled source instance: representative-callback-source.\n",
+                (
+                    "Sampled source instance: representative-callback-source.\n"
+                    "Sampled source instance: missing because no representative sample was fetched.\n"
+                ),
+            ),
+            "Generated skill SKILL.md has conflicting sampled source instance lines",
+        ),
+        (
+            "conflicting compatible MCP provider tools evidence",
+            valid_skill_md.replace(
+                (
+                    "Compatible MCP provider tools: plan_call, run_call, and get_call_run "
+                    "are exposed by the configured MCP route for one-off calls.\n"
+                ),
+                (
+                    "Compatible MCP provider tools: plan_call, run_call, and get_call_run "
+                    "are exposed by the configured MCP route for one-off calls.\n"
+                    "Compatible MCP provider tools: missing because no compatible tools are exposed.\n"
+                ),
+            ),
+            "Generated skill SKILL.md has conflicting compatible MCP provider tools lines",
+        ),
+        (
+            "conflicting one-off call capability evidence",
+            valid_skill_md.replace(
+                "One-off call capability: passed with the configured MCP route.\n",
+                (
+                    "One-off call capability: passed with the configured MCP route.\n"
+                    "One-off call capability: missing because no run tool is exposed.\n"
+                ),
+            ),
+            "Generated skill SKILL.md has conflicting one-off call capability lines",
+        ),
     ]
     for case_name, skill_md, expected_error in conflicting_status_cases:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -3526,7 +3833,7 @@ Runtime parameters still allowed: date window and approved source instance ident
                 "Onboarding blocker: source access is blocked until credentials are refreshed.\n",
                 "",
             ),
-            "Dry-run-only blocked source onboarding must include a non-empty onboarding blocker",
+            "Bound generated skill SKILL.md must include passed authentication or access check result",
         ),
         (
             "dry-run-only source blocker with none blocker",
@@ -3534,7 +3841,7 @@ Runtime parameters still allowed: date window and approved source instance ident
                 "Onboarding blocker: source access is blocked until credentials are refreshed.",
                 "Onboarding blocker: none.",
             ),
-            "Dry-run-only blocked source onboarding must include a non-empty onboarding blocker",
+            "Bound generated skill SKILL.md must include passed authentication or access check result",
         ),
         (
             "dry-run-only source blocker with contradictory none blocker",
@@ -3545,7 +3852,7 @@ Runtime parameters still allowed: date window and approved source instance ident
                     "Onboarding blocker: none."
                 ),
             ),
-            "Dry-run-only blocked source onboarding must include a non-empty onboarding blocker",
+            "Bound generated skill SKILL.md must include passed authentication or access check result",
         ),
         (
             "dry-run-only provider blocker without blocker field",

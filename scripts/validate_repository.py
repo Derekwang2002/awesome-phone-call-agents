@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SKILL_SCRIPT_REFERENCE_RE = re.compile(r"(?<![A-Za-z0-9_./-])(scripts/[A-Za-z0-9][A-Za-z0-9._/-]*)")
 REPOSITORY_TITLE = "Awesome Phone Call Agents"
 OLD_REPOSITORY_TITLE = "Awesome Phone Call " + "Skill"
 OLD_REPOSITORY_SLUG = "awesome-phone-call-" + "skill"
@@ -56,6 +57,30 @@ def parse_frontmatter(text: str, path: Path) -> dict[str, str]:
         key, value = line.split(":", 1)
         result[key.strip()] = value.strip().strip('"').strip("'")
     return result
+
+
+def extract_referenced_skill_script_paths(text: str) -> set[Path]:
+    paths: set[Path] = set()
+    for match in SKILL_SCRIPT_REFERENCE_RE.finditer(text):
+        raw_path = match.group(1).rstrip(".,;:)]}`'\"")
+        path = Path(raw_path)
+        if len(path.parts) < 2 or path.parts[0] != "scripts":
+            continue
+        if any(part in {"", ".", ".."} for part in path.parts):
+            continue
+        paths.add(path)
+    return paths
+
+
+def missing_referenced_skill_script_paths(skill_dir: Path, text: str) -> list[Path]:
+    return sorted(
+        (
+            relative_path
+            for relative_path in extract_referenced_skill_script_paths(text)
+            if not (skill_dir / relative_path).is_file() and not (ROOT / relative_path).is_file()
+        ),
+        key=str,
+    )
 
 
 def iter_skill_dirs() -> list[Path]:
@@ -160,6 +185,24 @@ def validate_english_only() -> None:
                 fail(f"CJK text found in repository-facing content: {path.relative_to(ROOT)}")
 
 
+def validate_skill_reference_path_checker() -> None:
+    sample = "Use `scripts/render-runtime-prompt.mjs`, then run scripts/validate-reminder-input.mjs."
+    expected = {
+        Path("scripts/render-runtime-prompt.mjs"),
+        Path("scripts/validate-reminder-input.mjs"),
+    }
+    actual = extract_referenced_skill_script_paths(sample)
+    if expected - actual:
+        fail("Skill helper-script reference checker must find local scripts/ references.")
+
+    missing = missing_referenced_skill_script_paths(
+        ROOT / "skills" / "call-reminder",
+        "Use scripts/does-not-exist.mjs for this workflow.",
+    )
+    if missing != [Path("scripts/does-not-exist.mjs")]:
+        fail("Skill helper-script reference checker must report missing local scripts.")
+
+
 def validate_skills() -> None:
     allowed_skill_readmes = {
         ROOT / "skills" / "outbound-call-skill-creator" / "README.md",
@@ -195,6 +238,11 @@ def validate_skills() -> None:
             fail(f"Skill must include references/ directory: {references_dir.relative_to(ROOT)}")
         read(references_dir / "safety.md")
         read(references_dir / "examples.md")
+        for missing_script in missing_referenced_skill_script_paths(skill_dir, text):
+            fail(
+                f"Skill references missing helper script: "
+                f"{(skill_dir / missing_script).relative_to(ROOT)}"
+            )
 
 
 def validate_expected_files() -> None:
@@ -539,6 +587,12 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "When the user names only an authenticated source family such as `google-form` or `tiktok-ads`, first use `references/interaction-flow.md` to recommend a likely workflow and provisional call goal.",
             "When a host-local source adapter, connector, MCP tool, or helper script is available, inspect it before asking the user to choose an access route.",
             "Do not ask the user to choose `use local OAuth to list accessible forms` when a local OAuth helper can be checked directly.",
+            "Confirm only a provisional outbound call goal before source sampling.",
+            "Confirm the final outbound goal contract only after representative sampling identifies the available goal input fields.",
+            "Treat early result-output or writeback input as a preference, not as a verified target.",
+            "Confirm the verified durable result-output target only after source access and representative sampling identify supported writeback paths, source-adjacent artifact options, or local CSV output.",
+            "Finalize the selected execution mode only after source onboarding, verified durable result-output capability, and provider onboarding evidence are known.",
+            "Provider onboarding failure permits only dry-run-only generation with an explicit blocker; it must not generate a skill that can place real calls.",
             "`tiktok-ads`: records obtained from TikTok Ads through exposed MCP tools, resources, or approved connectors.",
             "parameterized-bound",
             "approved-direct-execution",
@@ -611,6 +665,8 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "If the user provides several values at once, record all of them and continue from the first missing value.",
             "Do not ask for skill name, output target, binding level, execution mode, full field mapping, or writeback behavior before workflow, source family, and call goal are established",
             "Do not confirm writeback targets before source access and representative sampling have identified supported writeback paths.",
+            "Record early writeback or result-output input as a preference only.",
+            "Confirm the verified writeback or durable result-output target only after the source access check and representative sample identify supported paths.",
             "User-Facing Language Boundary",
             "Do not ask users to choose by internal terms",
             "Reusable workflow",
@@ -631,6 +687,21 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
         "Continue with source access check and representative sample fetch.",
         "Confirm the writeback target",
     )
+    require_text_order(
+        skill_dir / "SKILL.md",
+        "Read `references/data-sources.md` for the selected source family and run creation-time source onboarding",
+        "Confirm the verified durable result-output target",
+    )
+    require_text_order(
+        skill_dir / "SKILL.md",
+        "Confirm the final outbound goal contract",
+        "Finalize the selected execution mode",
+    )
+    require_text_order(
+        skill_dir / "SKILL.md",
+        "run creation-time provider onboarding",
+        "Finalize the selected execution mode",
+    )
     require_text(
         skill_dir / "references" / "mcp-provider-route.md",
         [
@@ -642,6 +713,7 @@ def validate_outbound_call_skill_creator_acceptance_rules() -> None:
             "Claude, Antigravity, Cursor, or another MCP host adapter",
             "If no authenticated MCP route is available, stop and ask the user to connect or authorize it",
             "Provider onboarding must remain non-mutating for phone-call side effects.",
+            "Provider onboarding failure permits only dry-run-only generation with an explicit blocker.",
             "Terminal seen is not terminal stable.",
             "full-history provider reconciliation",
             "keep the generated skill dry-run-only until the blocker is resolved",
@@ -1505,6 +1577,7 @@ Provider host runtime: Codex.
 MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.
 Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.
 Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.
+One-off call capability: passed with the configured MCP route.
 Provider onboarding blocker: none.""",
             """provider_onboarding_report:
   provider_route: https://seleven-mcp-sg.airudder.com/mcp/openagent_oauth
@@ -1515,6 +1588,8 @@ Provider onboarding blocker: none.""",
   one_off_call_capability: passed
   provider_onboarding_blocker: none""",
         )
+        if "provider_onboarding_report:" not in structured_contract_md:
+            fail("Generated outbound skill checker structured provider fixture must be substituted.")
         (skill_dir / "SKILL.md").write_text(structured_contract_md, encoding="utf-8")
         structured_contract_success = subprocess.run(
             ["node", str(checker), "--skill-dir", str(skill_dir)],
@@ -4089,6 +4164,7 @@ def main() -> None:
     validate_git_naming_conventions()
     validate_apps()
     validate_plugins()
+    validate_skill_reference_path_checker()
     validate_skills()
     validate_call_reminder_acceptance_rules()
     validate_outbound_call_skill_creator_acceptance_rules()

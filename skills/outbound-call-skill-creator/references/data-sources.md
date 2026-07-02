@@ -38,7 +38,7 @@ Choose whether the workflow stays at the minimum binding level or upgrades to a 
 | `fully-bound` | Concrete source instance, field names, source-level outreach basis or consent rule, dedupe key, fixed result target, and result fields. The result target can be source writeback, a source-adjacent result artifact, or a local result CSV. | Date window, subset filters, and other narrow processing controls. |
 | `parameterized-bound` | Source family, access method, required schema, source-level outreach basis or consent rule, dedupe key, result-output policy, and result field schema. | Approved instance parameters such as form ID, CSV path, campaign ID, date window, source writeback target, source-adjacent artifact target, or output path. |
 
-Default to the minimum `parameterized-bound` contract. Use `fully-bound` for stable production or scheduled workflows that should fix a concrete source and durable result-output target. If the workflow cannot support the minimum contract, continue onboarding or stop before generating the skill.
+Default to the minimum `parameterized-bound` contract. Use `fully-bound` for stable production or scheduled workflows that should fix a concrete source and durable result-output target. If the workflow cannot support the minimum contract, continue onboarding or stop before generating the skill. Treat early result-output or writeback input as a preference, not as a verified target, until source access and representative sampling identify supported writeback paths, source-adjacent artifact options, or local CSV output.
 
 ## Preflight and Runtime Gate
 
@@ -78,6 +78,7 @@ When a safe source authorization or auth-readiness action is available, start it
 6. Infer the phone field, recipient field, dedupe key, outreach basis or consent field, goal inputs, and durable result-output capability from source metadata and the sample.
 7. Show a redacted sample summary and proposed field mapping for user confirmation.
 8. Ask the user to fill only fields that cannot be inferred from the sample.
+9. Confirm the verified writeback or durable result-output target only after the sample and source metadata identify supported paths.
 
 When the user names only an authenticated source family such as `google-form` or `tiktok-ads`, treat that as enough to recommend a likely workflow and provisional call goal, then enter source access onboarding. First inspect available host routes and run any safe auth-readiness or discovery check. The next prompt should ask only for the minimum locator or user-completed authorization step that remains necessary to fetch a representative sample. Do not ask for detailed field mapping, final goal-field selection, or result-output mapping before the access check and sample fetch have been attempted.
 

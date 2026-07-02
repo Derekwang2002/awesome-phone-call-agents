@@ -11,6 +11,9 @@ Use this reference before asking the user creation questions. The creator should
 - Only require extra user work when the user has a special preference or a manual step is unavoidable, such as OAuth completion, a source locator, or writeback target confirmation.
 - Do not ask for skill name, output target, binding level, execution mode, full field mapping, or writeback behavior before workflow, source family, and call goal are established, unless the user already supplied those later values.
 - Do not confirm writeback targets before source access and representative sampling have identified supported writeback paths.
+- Record early writeback or result-output input as a preference only.
+- Confirm the verified writeback or durable result-output target only after the source access check and representative sample identify supported paths.
+- Record early direct-execution or preview input as a preference only. Finalize the selected execution mode only after source onboarding, verified durable result-output capability, and provider onboarding evidence are known.
 - Do not make the user choose by internal terms such as binding level, execution mode, provider onboarding, runtime gate, or writeback binding. Use plain user-facing labels first and keep internal terms as optional parenthetical detail for contracts, summaries, and advanced users.
 
 ## Known Values
@@ -24,7 +27,8 @@ Maintain a running set of known values during creation:
 - binding level
 - execution mode
 - skill name
-- writeback choice
+- result-output preference
+- verified writeback or result-output target
 - output target
 - auth status
 
@@ -55,13 +59,15 @@ When a setup step requires manual user action, describe the visible action inste
 1. Ask for either the business workflow or the data source.
 2. If only the workflow is provided, ask for the data source with examples.
 3. If only the data source is provided, recommend a likely business workflow and ask the user to confirm or adjust it.
-4. Confirm the outbound call goal with a recommended goal draft.
-5. Recommend workflow reuse and preview policy together, using plain labels first.
+4. Confirm the provisional outbound call goal with a recommended goal draft.
+5. Recommend workflow reuse and preview preference together, using plain labels first.
 6. Confirm the skill name with one recommended lowercase hyphenated slug.
 7. Continue with source access check and representative sample fetch.
-8. Confirm the discovered field mapping and default goal contract derived from sampled fields.
+8. Confirm the discovered field mapping and final goal contract derived from sampled fields.
 9. Confirm the writeback target only after the source access check and representative sample identify supported writeback paths.
-10. Continue with call provider connection, output target confirmation when needed, generation, validation, and creation summary.
+10. Continue with call provider connection.
+11. Finalize the selected execution mode only after source onboarding, verified durable result-output capability, and provider onboarding evidence are known.
+12. Continue with output target confirmation when needed, generation, validation, and creation summary.
 
 ## Copyable Examples
 
@@ -124,7 +130,7 @@ Use that workflow.
 
 ## Workflow Reuse And Preview Prompt
 
-Recommend workflow reuse and call-preview behavior together after workflow, source family, and goal are known:
+Recommend workflow reuse and call-preview preference together after workflow, source family, and provisional goal are known:
 
 ```text
 Recommended: Reusable workflow (`parameterized-bound`) with preview before calling (`dry-run-then-batch-approval`).
@@ -138,11 +144,11 @@ You can reply with:
 Use the recommended reusable workflow with preview-before-calling.
 ```
 
-Do not present unsupported binding levels or per-candidate approval modes.
+Do not present unsupported binding levels or per-candidate approval modes. Treat this as a preference prompt, not final execution-mode selection; final selection happens only after source onboarding, verified durable result-output capability, and provider onboarding evidence are known.
 
 ## Writeback Prompt
 
-Use this prompt only after source access and representative sampling have identified the supported writeback paths. List only options proven by the source access check, representative sample, linked metadata, or exposed source tools, and recommend the safest one:
+Use this prompt only after source access and representative sampling have identified the supported writeback paths. If the user mentioned writeback or output earlier, treat that as a preference until this step. List only options proven by the source access check, representative sample, linked metadata, or exposed source tools, and recommend the safest one:
 
 - Google Form: linked response spreadsheet writeback only when the linked spreadsheet or approved writeback route is discovered.
 - TikTok Ads: approved MCP writeback tool or approved connector action only when the source route exposes it.

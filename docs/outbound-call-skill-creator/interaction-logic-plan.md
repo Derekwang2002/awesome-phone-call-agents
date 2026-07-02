@@ -31,7 +31,7 @@ The agent detects `outbound-call-skill-creator` and starts a creation conversati
 - outbound call goal contract
 - provider route readiness for the CALL-E MCP provider route
 - execution mode
-- writeback or session-table behavior
+- verified durable result-output behavior
 - validation result and reload or discovery note
 
 The result of this layer is a generated business skill directory, not a completed call campaign.
@@ -79,6 +79,9 @@ Hard rules:
 - If the user already provided information earlier, do not ask for it again.
 - If the user provides multiple answers at once, record all of them and advance to the next missing step.
 - Only require extra user work when the user has a special preference or a manual step is unavoidable, such as OAuth completion, a source locator, or confirming a writeback target.
+- Treat early result-output, writeback, direct-execution, or preview input as a preference until source sampling and provider evidence make the option verifiable.
+- Confirm writeback targets only after source access and representative sampling identify supported paths.
+- Finalize the selected execution mode only after source onboarding, verified durable result-output capability, and provider onboarding evidence are known.
 - Do not expose internal concepts as the first decision surface. Use business-language labels first and keep terms such as binding level, execution mode, provider onboarding, runtime gate, and writeback binding as secondary technical detail.
 
 ### Information Reuse Rule
@@ -92,7 +95,8 @@ Maintain a running set of known values during creation:
 - binding level
 - execution mode
 - skill name
-- writeback choice
+- result-output preference
+- verified writeback or result-output target
 - output target
 - auth status
 
@@ -173,11 +177,15 @@ Preferred prompt order:
 1. Ask for either the business workflow or the data source.
 2. If only the workflow is provided, ask for the data source with examples such as `google-form`, `tiktok-ads`, `local-csv`, or `other`.
 3. If only the data source is provided, recommend a likely business workflow and ask the user to confirm or adjust it.
-4. Confirm the outbound call goal with a recommended goal draft based on the workflow and source.
-5. Recommend binding level and execution mode together, defaulting to "Reusable workflow (`parameterized-bound`)" plus "Preview before calling (`dry-run-then-batch-approval`)", while showing other options briefly.
+4. Confirm a provisional outbound call goal with a recommended goal draft based on the workflow and source.
+5. Recommend binding level and call-preview preference together, defaulting to "Reusable workflow (`parameterized-bound`)" plus "Preview before calling (`dry-run-then-batch-approval`)", while showing other options briefly.
 6. Confirm the skill name with one recommended lowercase hyphenated slug.
-7. Confirm the writeback target by listing source-specific writeback options, excluding fallback or session-table output from the normal option list.
-8. Continue with source onboarding, provider check, output target confirmation when needed, generation, validation, and creation summary.
+7. Continue with source onboarding and representative sample fetch.
+8. Confirm inferred field mapping and the final goal contract from the sampled fields.
+9. Confirm the verified writeback or durable result-output target by listing only source-specific options proven by source access, representative sample, linked metadata, or exposed source tools.
+10. Continue with provider check.
+11. Finalize the selected execution mode from the earlier preference and verified onboarding evidence.
+12. Continue with output target confirmation when needed, generation, validation, and creation summary.
 
 If the user supplies several of these values in one message, skip the matching prompts and continue from the first missing item.
 
@@ -196,17 +204,17 @@ Internal terms can still appear in generated skill contracts and validation deta
 ## Target Happy Path
 
 1. User describes the workflow.
-2. Agent identifies the source family and proposes a skill name.
-3. Agent says it will create a reusable skill with runtime parameters such as date window and source instance.
-4. Agent chooses the output target and explains discoverability.
+2. Agent identifies the source family and confirms a provisional call goal.
+3. Agent recommends a reusable workflow with preview before calling as the default preference.
+4. Agent proposes a skill name.
 5. Agent checks source access or asks for the minimum missing locator.
 6. Agent fetches a small read-only sample.
 7. Agent proposes field mapping with redacted sample evidence.
-8. User confirms or corrects the mapping.
-9. Agent asks for the business call goal.
+8. User confirms or corrects the mapping and final goal contract.
+9. Agent confirms the source-specific durable result-output target, or records session-table output only as a fallback when durable output is unavailable or intentionally not configured.
 10. Agent verifies the CALL-E MCP provider route.
-11. Agent recommends preview-before-calling execution.
-12. Agent confirms the source-specific writeback target, or records session-table output only as a fallback when writeback is unavailable or intentionally not configured.
+11. Agent finalizes the selected execution mode.
+12. Agent chooses the output target and explains discoverability.
 13. Agent writes the generated skill folder.
 14. Agent runs the generated-skill checker.
 15. Agent reports the creation summary and future usage example.
@@ -267,7 +275,7 @@ This should make source onboarding feel like assisted setup instead of a blank q
 
 ### Task 4: Rewrite Execution Mode Presentation
 
-Make "preview before calling" the user-facing default. Keep internal execution mode names in contracts, but do not make the user choose from all modes unless they request a non-default approval model.
+Make "preview before calling" the user-facing default preference. Keep internal execution mode names in contracts, but do not make the user choose from all modes unless they request a non-default approval model. Finalize the selected execution mode only after source onboarding, verified durable result-output capability, and provider onboarding evidence are known.
 
 If advanced modes remain supported, document them as opt-in:
 
@@ -313,4 +321,4 @@ Fix any validation failures before the branch is considered ready.
 
 ## Resolved Decision
 
-The creator should not expose a generic unbound binding level or a per-candidate approval execution mode. The user-facing and generated-skill model should stay centered on `fully-bound` or `parameterized-bound` workflows, with `dry-run-then-batch-approval` as the default execution mode and `approved-direct-execution` reserved for stable workflows whose concrete runtime requests pass the mandatory runtime gate.
+The creator should not expose a generic unbound binding level or a per-candidate approval execution mode. The user-facing and generated-skill model should stay centered on `fully-bound` or `parameterized-bound` workflows, with `dry-run-then-batch-approval` as the default execution preference and `approved-direct-execution` reserved for stable workflows whose creation-time evidence and concrete runtime requests pass the mandatory gates.

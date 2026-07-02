@@ -236,6 +236,14 @@ const BOUND_PROVIDER_ALWAYS_MARKERS = [
   },
   ...BOUND_PROVIDER_STATUS_MARKERS,
 ];
+const BOUND_PROVIDER_ONE_OFF_CAPABILITY_MARKER = {
+  label: "one-off call capability",
+  patterns: [
+    /one[- ]off call capability\s*:\s*([^\n]*)/iu,
+    /^\s*one_off_call_capability\s*:\s*([^\n]*)/imu,
+  ],
+  resultLine: true,
+};
 const BOUND_PROVIDER_READY_MARKERS = [
   {
     label: "compatible MCP provider tools",
@@ -245,13 +253,11 @@ const BOUND_PROVIDER_READY_MARKERS = [
       /^\s*compatible_tools\s*:/imu,
     ],
   },
-  {
-    label: "one-off call capability",
-    patterns: [
-      /one[- ]off call capability\s*:/iu,
-      /^\s*one_off_call_capability\s*:/imu,
-    ],
-  },
+  BOUND_PROVIDER_ONE_OFF_CAPABILITY_MARKER,
+];
+const BOUND_PROVIDER_BLOCKING_STATUS_MARKERS = [
+  ...BOUND_PROVIDER_STATUS_MARKERS,
+  BOUND_PROVIDER_ONE_OFF_CAPABILITY_MARKER,
 ];
 const SOURCE_BLOCKER_PATTERNS = [
   /^\s*(?:source\s+)?onboarding blocker\s*:\s*([^\n]*)/imu,
@@ -646,17 +652,10 @@ const sourceOnboardingText = extractSections(skillText, [
   "Source Onboarding",
   "Source Onboarding Contract",
 ]);
-const providerOnboardingEvidenceText = extractSection(skillText, "Provider Onboarding");
-const providerOnboardingContractText = extractSection(skillText, "Provider Onboarding Contract");
-const providerOnboardingText = providerOnboardingEvidenceText.trim()
-  ? providerOnboardingEvidenceText
-  : providerOnboardingContractText;
-const providerOnboardingEvidenceAndContractText = [
-  providerOnboardingEvidenceText,
-  providerOnboardingContractText,
-]
-  .filter((text) => text.trim())
-  .join("\n");
+const providerOnboardingText = extractSections(skillText, [
+  "Provider Onboarding",
+  "Provider Onboarding Contract",
+]);
 const executionModesText = extractSection(skillText, "Execution Modes");
 const safetySummaryText = extractSection(skillText, "Safety Summary");
 const selectedBindingLevel = extractRequiredValue(
@@ -702,7 +701,7 @@ if (["fully-bound", "parameterized-bound"].includes(selectedBindingLevel)) {
     }
   }
   if (
-    hasDisallowedProviderEvidence(providerOnboardingEvidenceAndContractText, {
+    hasDisallowedProviderEvidence(providerOnboardingText, {
       scanFreeFormEvidence: true,
     })
   ) {
@@ -710,7 +709,7 @@ if (["fully-bound", "parameterized-bound"].includes(selectedBindingLevel)) {
       "Provider onboarding must use host MCP route setup and authentication evidence, not app connector tools",
     );
   }
-  const providerOnboardingStatuses = BOUND_PROVIDER_STATUS_MARKERS.map((marker) =>
+  const providerOnboardingStatuses = BOUND_PROVIDER_BLOCKING_STATUS_MARKERS.map((marker) =>
     getOnboardingStatus(providerOnboardingText, marker, allowsBlockedOnboarding),
   );
   const hasBlockedProviderOnboarding = providerOnboardingStatuses.includes("blocked");

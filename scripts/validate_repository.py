@@ -999,6 +999,33 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
         ):
             fail("Generated outbound skill checker missing-one-off-capability message changed.")
 
+        unavailable_one_off_capability_md = valid_skill_md.replace(
+            "One-off call capability: passed with the configured MCP route.",
+            "One-off call capability: missing because no run tool is exposed.",
+        )
+        (skill_dir / "SKILL.md").write_text(
+            unavailable_one_off_capability_md,
+            encoding="utf-8",
+        )
+        unavailable_one_off_capability_failure = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        unavailable_one_off_capability_output = (
+            unavailable_one_off_capability_failure.stdout
+            + unavailable_one_off_capability_failure.stderr
+        )
+        if unavailable_one_off_capability_failure.returncode == 0:
+            fail("Generated outbound skill checker must reject unavailable one-off call capability.")
+        if (
+            "Bound generated skill SKILL.md must include one-off call capability"
+            not in unavailable_one_off_capability_output
+        ):
+            fail("Generated outbound skill checker unavailable-one-off-capability message changed.")
+
         provider_contract_policy_md = valid_skill_md.replace(
             "Provider onboarding blocker: none.\n\n## Execution Modes",
             (
@@ -1192,6 +1219,54 @@ Run node skills/outbound-call-skill-creator/scripts/check-generated-skill.mjs --
                 + (
                     documented_onboarding_headings_after_placeholders_success.stderr
                     or documented_onboarding_headings_after_placeholders_success.stdout
+                ).strip()
+            )
+
+        provider_contract_after_placeholder_summary_md = valid_skill_md.replace(
+            (
+                "## Provider Onboarding\n\n"
+                "Provider onboarding completed for the CALL-E MCP provider route.\n"
+                "Provider host runtime: Codex.\n"
+                "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.\n"
+                "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.\n"
+                "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.\n"
+                "One-off call capability: passed with the configured MCP route.\n"
+                "Provider onboarding blocker: none.\n\n"
+                "## Execution Modes"
+            ),
+            (
+                "## Provider Onboarding\n\n"
+                "Provider onboarding summary: detailed host MCP evidence is recorded in the provider onboarding contract.\n"
+                "MCP route setup check result: pending placeholder.\n"
+                "Provider authentication check result: pending placeholder.\n\n"
+                "## Provider Onboarding Contract\n\n"
+                "Provider onboarding completed for the CALL-E MCP provider route.\n"
+                "Provider host runtime: Codex.\n"
+                "MCP route setup check result: passed with `codex mcp get calle-prod` for the required route.\n"
+                "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.\n"
+                "Compatible MCP provider tools: plan_call, run_call, and get_call_run are exposed by the configured MCP route for one-off calls.\n"
+                "One-off call capability: passed with the configured MCP route.\n"
+                "Provider onboarding blocker: none.\n\n"
+                "## Execution Modes"
+            ),
+        )
+        (skill_dir / "SKILL.md").write_text(
+            provider_contract_after_placeholder_summary_md,
+            encoding="utf-8",
+        )
+        provider_contract_after_placeholder_summary_success = subprocess.run(
+            ["node", str(checker), "--skill-dir", str(skill_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if provider_contract_after_placeholder_summary_success.returncode != 0:
+            fail(
+                "Generated outbound skill checker must combine provider onboarding and contract sections: "
+                + (
+                    provider_contract_after_placeholder_summary_success.stderr
+                    or provider_contract_after_placeholder_summary_success.stdout
                 ).strip()
             )
 

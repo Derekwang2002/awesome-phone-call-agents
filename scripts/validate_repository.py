@@ -3828,6 +3828,14 @@ Runtime parameters still allowed: date window and approved source instance ident
             "Generated skill SKILL.md has contradictory passed authentication or access check result line",
         ),
         (
+            "contradictory provider authentication requires onboarding status",
+            valid_skill_md.replace(
+                "Provider authentication check result: passed with `codex mcp list` reporting OAuth for calle-prod.",
+                "Provider authentication check result: passed but requires OAuth login before calls.",
+            ),
+            "Generated skill SKILL.md has contradictory passed provider authentication or auth readiness check result line",
+        ),
+        (
             "contradictory one-off call capability status",
             valid_skill_md.replace(
                 "One-off call capability: passed with the configured MCP route.",

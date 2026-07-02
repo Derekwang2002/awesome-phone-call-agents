@@ -16,6 +16,8 @@ const BLOCKING_STATUS_RESULT_RE =
   /\b(?:failed|missing|incomplete|unavailable|not available|unsupported|not run|not ready|not configured|pending|required|blocked|requires|needs?)\b/iu;
 const CONTRADICTORY_STATUS_RESULT_RE =
   /\b(?:failed|missing|incomplete|unavailable|not available|unsupported|not run|not ready|not configured|pending|blocked)\b/iu;
+const REQUIRED_ACTION_STATUS_RESULT_RE =
+  /\b(?:requires|needs?)\b|\b(?:auth(?:entication)?|authorization|oauth|login|setup|configuration|action)\s+required\b|\brequired\s+(?:before|to)\b/iu;
 const BLOCKING_EVIDENCE_RESULT_RE =
   /\b(?:failed|missing|incomplete|unavailable|not available|unsupported|not run|not ready|not configured|pending|blocked)\b/iu;
 const EMPTY_EVIDENCE_RESULT_RE = /^(?:none|n\/a|na|not applicable|no)[.;]*$/iu;
@@ -434,7 +436,10 @@ function classifyOnboardingStatusLine(statusLine, allowBlockedStatus) {
     return "";
   }
   if (AFFIRMATIVE_PASS_RESULT_RE.test(normalizedStatusLine)) {
-    if (CONTRADICTORY_STATUS_RESULT_RE.test(normalizedBlockingStatusLine)) {
+    if (
+      CONTRADICTORY_STATUS_RESULT_RE.test(normalizedBlockingStatusLine) ||
+      REQUIRED_ACTION_STATUS_RESULT_RE.test(normalizedBlockingStatusLine)
+    ) {
       return "conflicted";
     }
     return "passed";
